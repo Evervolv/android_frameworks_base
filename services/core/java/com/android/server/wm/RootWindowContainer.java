@@ -174,6 +174,7 @@ class RootWindowContainer extends WindowContainer<DisplayContent>
         implements DisplayManager.DisplayListener {
     private static final String TAG = TAG_WITH_CLASS_NAME ? "RootWindowContainer" : TAG_WM;
 
+    private static final int SET_BUTTON_BRIGHTNESS_OVERRIDE = 0;
     private static final int SET_SCREEN_BRIGHTNESS_OVERRIDE = 1;
     private static final int SET_USER_ACTIVITY_TIMEOUT = 2;
     private static final int MSG_SEND_SLEEP_TRANSITION = 3;
@@ -186,6 +187,7 @@ class RootWindowContainer extends WindowContainer<DisplayContent>
     private static final long SLEEP_TRANSITION_WAIT_MILLIS = 1000L;
 
     private Object mLastWindowFreezeSource = null;
+    private float mButtonBrightnessOverride = PowerManager.BRIGHTNESS_INVALID_FLOAT;
     // Per-display WindowManager overrides that are passed on.
     private final SparseArray<DisplayBrightnessOverrideRequest> mDisplayBrightnessOverrides =
             new SparseArray<>();
@@ -777,6 +779,7 @@ class RootWindowContainer extends WindowContainer<DisplayContent>
                     UPDATE_FOCUS_WILL_PLACE_SURFACES, false /*updateInputWindows*/);
         }
 
+        mButtonBrightnessOverride = PowerManager.BRIGHTNESS_INVALID_FLOAT;
         mDisplayBrightnessOverrides.clear();
         mUserActivityTimeout = -1;
         mObscureApplicationContentOnSecondaryDisplays = false;
@@ -880,6 +883,12 @@ class RootWindowContainer extends WindowContainer<DisplayContent>
         }
 
         if (!mWmService.mDisplayFrozen) {
+            final float buttonBrightnessOverride = mButtonBrightnessOverride < PowerManager.BRIGHTNESS_MIN
+                    || mButtonBrightnessOverride > PowerManager.BRIGHTNESS_MAX
+                    ? PowerManager.BRIGHTNESS_INVALID_FLOAT : mButtonBrightnessOverride;
+            int buttonBrightnessFloatAsIntBits = Float.floatToIntBits(buttonBrightnessOverride);
+            mHandler.obtainMessage(SET_BUTTON_BRIGHTNESS_OVERRIDE, buttonBrightnessFloatAsIntBits,
+                    0).sendToTarget();
             // Post these on a handler such that we don't call into power manager service while
             // holding the window manager lock to avoid lock contention with power manager lock.
             mHandler.obtainMessage(SET_SCREEN_BRIGHTNESS_OVERRIDE, mDisplayBrightnessOverrides)
@@ -1036,6 +1045,11 @@ class RootWindowContainer extends WindowContainer<DisplayContent>
         }
         if (w.isDrawn() || (w.mActivityRecord != null && w.mActivityRecord.firstWindowDrawn
                 && w.mActivityRecord.isVisibleRequested())) {
+            if (!syswin && w.mAttrs.buttonBrightness >= PowerManager.BRIGHTNESS_MIN
+                    && w.mAttrs.buttonBrightness <= PowerManager.BRIGHTNESS_MAX
+                    && Float.isNaN(mButtonBrightnessOverride)) {
+                mButtonBrightnessOverride = w.mAttrs.buttonBrightness;
+            }
             if (!syswin && w.mAttrs.screenBrightness >= PowerManager.BRIGHTNESS_MIN
                     && w.mAttrs.screenBrightness <= PowerManager.BRIGHTNESS_MAX
                     && !mDisplayBrightnessOverrides.contains(w.getDisplayId())) {
@@ -1113,6 +1127,10 @@ class RootWindowContainer extends WindowContainer<DisplayContent>
         @Override
         public void handleMessage(Message msg) {
             switch (msg.what) {
+                case SET_BUTTON_BRIGHTNESS_OVERRIDE:
+                    mWmService.mPowerManagerInternal.setButtonBrightnessOverrideFromWindowManager(
+                            Float.intBitsToFloat(msg.arg1));
+                    break;
                 case SET_SCREEN_BRIGHTNESS_OVERRIDE:
                     var brightnessOverrides =
                             (SparseArray<DisplayBrightnessOverrideRequest>) msg.obj;
