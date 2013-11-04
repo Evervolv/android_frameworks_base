@@ -118,7 +118,7 @@ constructor(
     }
 
     private fun calculateTranslationX(view: View): Float? {
-        return if (view.display.rotation == RotationPolicy.NATURAL_ROTATION) {
+        return if (view.display.rotation == RotationPolicy.getNaturalRotation()) {
             if (view.isLayoutRtl) {
                 -1
             } else {
