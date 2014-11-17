@@ -1,5 +1,7 @@
 /*
  * Copyright (C) 2023 The Android Open Source Project
+ * Copyright (C) 2015 The CyanogenMod Project
+ * Copyright (C) 2017 The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -75,6 +77,9 @@ import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.server.EventLogTags;
 import com.android.server.lights.LightsManager;
 import com.android.server.lights.LogicalLight;
+
+import com.evervolv.internal.notification.LedValues;
+import com.evervolv.internal.notification.NotificationLightHelper;
 
 import java.io.PrintWriter;
 import java.lang.annotation.Retention;
@@ -156,6 +161,7 @@ public final class NotificationAttentionHelper {
     private final AudioAttributes mInCallNotificationAudioAttributes;
     private final float mInCallNotificationVolume;
     private Binder mCallNotificationToken = null;
+    private NotificationLightHelper mNotificationLightHelper;
 
     // Settings flags
     private boolean mNotificationCooldownEnabled;
@@ -207,6 +213,22 @@ public final class NotificationAttentionHelper {
                 .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
                 .build();
         mInCallNotificationVolume = resources.getFloat(R.dimen.config_inCallNotificationVolume);
+
+        mNotificationLightHelper = new NotificationLightHelper(mContext,
+                 new NotificationLightHelper.LedUpdater() {
+            public void update() {
+                updateLightsLocked();
+            }
+        });
+
+        mZenModeHelper.addCallback(new ZenModeHelper.Callback() {
+            @Override
+            void onZenModeChanged() {
+                Binder.withCleanCallingIdentity(() -> {
+                    mNotificationLightHelper.setZenMode(mZenModeHelper.getZenMode());
+                });
+            }
+        });
 
         if (Flags.politeNotifications()) {
             mStrategy = createPolitenessStrategy();
@@ -310,6 +332,7 @@ public final class NotificationAttentionHelper {
                     SettingsObserver.NOTIFICATION_COOLDOWN_VIBRATE_UNLOCKED_URI, false,
                     mSettingsObserver, UserHandle.USER_ALL);
         }
+        mSettingsObserver.onChange(false, null);
     }
 
     private void loadUserSettings() {
@@ -834,9 +857,11 @@ public final class NotificationAttentionHelper {
     }
 
     private void clearLightsLocked() {
-        // light
-        mLights.clear();
-        updateLightsLocked();
+        // clear only if lockscreen is not active
+        if (!mNotificationLightHelper.isKeyguardLocked()) {
+            mLights.clear();
+            updateLightsLocked();
+        }
     }
 
     public void clearEffectsLocked(String key) {
@@ -874,17 +899,41 @@ public final class NotificationAttentionHelper {
             }
         }
 
-        // Don't flash while we are in a call or screen is on
-        if (ledNotification == null || isInCall() || mScreenOn) {
+        NotificationRecord.Light light = ledNotification != null ?
+                ledNotification.getLight() : null;
+        if (ledNotification == null || mNotificationLightHelper == null || light == null) {
+            mNotificationLight.turnOff();
+            return;
+        }
+
+        int ledColor = light.color;
+        if (isLedForcedOn(ledNotification) && ledColor == 0) {
+            // User has requested color 0.  However, lineage-sdk interprets
+            // color 0 as "supply a default" therefore adjust alpha to make
+            // the color still black but non-zero.
+            ledColor = 0x01000000;
+        }
+
+        LedValues ledValues = new LedValues(ledColor, light.onMs, light.offMs);
+        mNotificationLightHelper.calcLights(ledValues, ledNotification.getSbn().getPackageName(),
+                ledNotification.getSbn().getNotification(), mScreenOn || isInCall(),
+                ledNotification.getSuppressedVisualEffects());
+
+        if (!ledValues.isEnabled()) {
             mNotificationLight.turnOff();
         } else {
-            NotificationRecord.Light light = ledNotification.getLight();
-            if (light != null && mNotificationPulseEnabled) {
-                // pulse repeatedly
-                mNotificationLight.setFlashing(light.color, LogicalLight.LIGHT_FLASH_TIMED,
-                        light.onMs, light.offMs);
+            // we are using 1:0 to indicate LED should stay always on
+            if (ledValues.getOnMs() == 1 && ledValues.getOffMs() == 0) {
+                mNotificationLight.setColor(ledValues.getColor());
+            } else {
+                mNotificationLight.setFlashing(ledValues.getColor(),
+                        LogicalLight.LIGHT_FLASH_TIMED, ledValues.getOnMs(), ledValues.getOffMs());
             }
         }
+    }
+
+    private boolean isLedForcedOn(NotificationRecord nr) {
+        return nr != null && mNotificationLightHelper.isForcedOn(nr.getSbn().getNotification());
     }
 
     boolean canShowLightsLocked(final NotificationRecord record, final Signals signals,
@@ -895,6 +944,12 @@ public final class NotificationAttentionHelper {
         // device lacks light
         if (!mHasLight) {
             return false;
+        }
+        // Forced on
+        // Used by LineageParts light picker
+        // eg to allow selecting battery light color when notification led is turned off.
+        if (isLedForcedOn(record)) {
+            return true;
         }
         // user turned lights off globally
         if (!mNotificationPulseEnabled) {
@@ -908,10 +963,6 @@ public final class NotificationAttentionHelper {
         if (!aboveThreshold) {
             return false;
         }
-        // suppressed due to DND
-        if ((record.getSuppressedVisualEffects() & SUPPRESSED_EFFECT_LIGHTS) != 0) {
-            return false;
-        }
         // Suppressed because it's a silent update
         final Notification notification = record.getNotification();
         if (record.isUpdate && (notification.flags & FLAG_ONLY_ALERT_ONCE) != 0) {
@@ -919,10 +970,6 @@ public final class NotificationAttentionHelper {
         }
         // Suppressed because another notification in its group handles alerting
         if (record.getSbn().isGroup() && record.getNotification().suppressAlertingDueToGrouping()) {
-            return false;
-        }
-        // not if in call
-        if (isInCall()) {
             return false;
         }
         // check current user
@@ -1605,7 +1652,10 @@ public final class NotificationAttentionHelper {
                 mUserPresent = true;
                 // turn off LED when user passes through lock screen
                 if (mNotificationLight != null) {
-                    mNotificationLight.turnOff();
+                    // if lights with screen on is disabled.
+                    if (!mNotificationLightHelper.showLightsScreenOn()) {
+                        mNotificationLight.turnOff();
+                    }
                 }
             } else if (action.equals(Intent.ACTION_USER_ADDED)
                         || action.equals(Intent.ACTION_USER_REMOVED)
@@ -1656,7 +1706,7 @@ public final class NotificationAttentionHelper {
 
         @Override
         public void onChange(boolean selfChange, Uri uri) {
-            if (NOTIFICATION_LIGHT_PULSE_URI.equals(uri)) {
+            if (uri == null || NOTIFICATION_LIGHT_PULSE_URI.equals(uri)) {
                 boolean pulseEnabled = Settings.System.getIntForUser(
                         mContext.getContentResolver(),
                         Settings.System.NOTIFICATION_LIGHT_PULSE, 0,
@@ -1668,7 +1718,7 @@ public final class NotificationAttentionHelper {
                 }
             }
             if (Flags.politeNotifications()) {
-                if (NOTIFICATION_COOLDOWN_ENABLED_URI.equals(uri)) {
+                if (uri == null || NOTIFICATION_COOLDOWN_ENABLED_URI.equals(uri)) {
                     mNotificationCooldownEnabled = Settings.System.getIntForUser(
                             mContext.getContentResolver(),
                             Settings.System.NOTIFICATION_COOLDOWN_ENABLED,
@@ -1686,7 +1736,7 @@ public final class NotificationAttentionHelper {
                         mNotificationCooldownForWorkEnabled = false;
                     }
                 }
-                if (NOTIFICATION_COOLDOWN_ALL_URI.equals(uri)) {
+                if (uri == null || NOTIFICATION_COOLDOWN_ALL_URI.equals(uri)) {
                     mNotificationCooldownApplyToAll = Settings.System.getIntForUser(
                             mContext.getContentResolver(),
                             Settings.System.NOTIFICATION_COOLDOWN_ALL,
@@ -1695,7 +1745,7 @@ public final class NotificationAttentionHelper {
                     mStrategy.setApplyCooldownPerPackage(mNotificationCooldownApplyToAll);
                 }
                 if (Flags.vibrateWhileUnlocked()) {
-                    if (NOTIFICATION_COOLDOWN_VIBRATE_UNLOCKED_URI.equals(uri)) {
+                    if (uri == null || NOTIFICATION_COOLDOWN_VIBRATE_UNLOCKED_URI.equals(uri)) {
                         mNotificationCooldownVibrateUnlocked = Settings.System.getIntForUser(
                             mContext.getContentResolver(),
                             Settings.System.NOTIFICATION_COOLDOWN_VIBRATE_UNLOCKED,
