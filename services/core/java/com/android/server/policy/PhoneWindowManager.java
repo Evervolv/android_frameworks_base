@@ -254,6 +254,8 @@ import com.android.server.wm.DisplayRotation;
 import com.android.server.wm.WindowManagerInternal;
 import com.android.server.wm.WindowManagerInternal.AppTransitionListener;
 
+import com.evervolv.internal.buttons.ButtonManager;
+
 import dalvik.system.PathClassLoader;
 
 import java.io.File;
@@ -748,6 +750,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             ));
 
     private final List<DeviceKeyHandler> mDeviceKeyHandlers = new ArrayList<>();
+
+    private ButtonManager mButtonManager;
 
     private static final int MSG_DISPATCH_MEDIA_KEY_WITH_WAKE_LOCK = 3;
     private static final int MSG_DISPATCH_MEDIA_KEY_REPEAT_WITH_WAKE_LOCK = 4;
@@ -3370,6 +3374,18 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         }
     }
 
+    private static boolean isDeviceDreaming() {
+        IDreamManager dreamManager = getDreamManager();
+        if (dreamManager != null) {
+            try {
+                return dreamManager.isDreaming();
+            } catch (RemoteException e) {
+                // fine, stay asleep then
+            }
+        }
+        return false;
+    }
+
     static IDreamManager getDreamManager() {
         return IDreamManager.Stub.asInterface(
                 ServiceManager.checkService(DreamService.DREAM_SERVICE));
@@ -5201,6 +5217,10 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     // {@link interceptKeyBeforeDispatching()}.
                     result |= ACTION_PASS_TO_USER;
                 } else if ((result & ACTION_PASS_TO_USER) == 0) {
+                    if (mButtonManager.handleVolumeKey(event, interactive)) {
+                        break;
+                    }
+
                     // If we aren't passing to the user and no one else
                     // handled it send it to the session manager to
                     // figure out.
@@ -5684,6 +5704,11 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             return false;
         }
 
+        if ((keyCode == KeyEvent.KEYCODE_VOLUME_DOWN || keyCode == KeyEvent.KEYCODE_VOLUME_UP)
+                && isDeviceDreaming()) {
+            return false;
+        }
+
         // Send events to keyguard while the screen is on and it's showing.
         if (isKeyguardShowingAndNotOccluded()) {
             return true;
@@ -5693,14 +5718,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         if (isDefaultDisplay) {
             // Send events to a dozing dream since the dream is in control of the state of the
             // screen.
-            IDreamManager dreamManager = getDreamManager();
-
-            try {
-                if (dreamManager != null && dreamManager.isDreaming()) {
-                    return true;
-                }
-            } catch (RemoteException e) {
-                Slog.e(TAG, "RemoteException when checking if dreaming", e);
+            if (isDeviceDreaming()) {
+                return true;
             }
         }
 
@@ -6428,6 +6447,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                 mKeyguardDelegate.onBootCompleted();
             }
         }
+
+        mButtonManager = new ButtonManager(mContext);
 
         mAutofillManagerInternal = LocalServices.getService(AutofillManagerInternal.class);
         mGestureLauncherService = LocalServices.getService(GestureLauncherService.class);
