@@ -78,6 +78,7 @@ public final class AssetManager implements AutoCloseable {
     private static final String FRAMEWORK_APK_PATH = getFrameworkApkPath();
     private static final String FRAMEWORK_APK_PATH_DEVICE = "/system/framework/framework-res.apk";
     private static final String FRAMEWORK_APK_PATH_RAVENWOOD = "ravenwood-data/framework-res.apk";
+    private static final String PLATFORM_APK_PATH = "/system/framework/com.evervolv.platform-res.apk";
 
     private static final Object sSync = new Object();
 
@@ -285,6 +286,7 @@ public final class AssetManager implements AutoCloseable {
             for (String idmapPath : systemIdmapPaths) {
                 apkAssets.add(ApkAssets.loadOverlayFromPath(idmapPath, ApkAssets.PROPERTY_SYSTEM));
             }
+            apkAssets.add(ApkAssets.loadFromPath(PLATFORM_APK_PATH, ApkAssets.PROPERTY_SYSTEM));
 
             sSystemApkAssetsSet = new ArraySet<>(apkAssets);
             sSystemApkAssets = apkAssets.toArray(new ApkAssets[0]);
