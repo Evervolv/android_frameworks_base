@@ -745,6 +745,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     boolean mHavePendingMediaKeyRepeatWithWakeLock;
 
     private int mCurrentUserId;
+    private boolean haveEnableGesture = false;
 
     private AssistUtils mAssistUtils;
 
@@ -815,6 +816,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     private static final int MSG_SWITCH_KEYBOARD_LAYOUT = 25;
     private static final int MSG_SET_DEFERRED_KEY_ACTIONS_EXECUTABLE = 27;
     private static final int MSG_CAMERA_LONG_PRESS = 28;
+
+    private ScreenshotGestureListener mScreenshotGesture;
 
     private CameraManager mCameraManager;
     private CameraAvailbilityListener mCameraAvailabilityListener;
@@ -1080,6 +1083,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     UserHandle.USER_ALL);
             resolver.registerContentObserver(EVSettings.System.getUriFor(
                     EVSettings.System.CAMERA_LAUNCH), false, this,
+                    UserHandle.USER_ALL);
+            resolver.registerContentObserver(EVSettings.System.getUriFor(
+                    EVSettings.System.SWIPE_TO_SCREENSHOT), false, this,
                     UserHandle.USER_ALL);
             updateSettings();
         }
@@ -2463,6 +2469,12 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         }
 
         mHandler = new PolicyHandler(injector.getLooper());
+        mScreenshotGesture = new ScreenshotGestureListener(mContext, new ScreenshotGestureListener.Callbacks() {
+            @Override
+            public void onSwipeThreeFinger() {
+                interceptScreenshotChord(SCREENSHOT_KEY_OTHER, 0 /*pressDelay*/);
+            }
+        });
         mWakeGestureListener = new MyWakeGestureListener(mContext, mHandler);
         mSettingsObserver = new SettingsObserver(mHandler);
         mSettingsObserver.observe();
@@ -3091,6 +3103,21 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         mSingleKeyGestureDetector.addRule(new StylusTailButtonRule());
     }
 
+    private void updateScreenshotListener() {
+        final ContentResolver resolver = mContext.getContentResolver();
+        final boolean enable = EVSettings.System.getIntForUser(resolver,
+                    EVSettings.System.SWIPE_TO_SCREENSHOT, 0, UserHandle.USER_CURRENT) == 1;
+        if (enable) {
+            if (haveEnableGesture) return;
+            haveEnableGesture = true;
+            mWindowManagerFuncs.registerPointerEventListener(mScreenshotGesture, DEFAULT_DISPLAY);
+        } else {
+            if (!haveEnableGesture) return;
+            haveEnableGesture = false;
+            mWindowManagerFuncs.unregisterPointerEventListener(mScreenshotGesture, DEFAULT_DISPLAY);
+        }
+    }
+
     /**
      * Read values from config.xml that may be overridden depending on
      * the configuration of the device.
@@ -3250,6 +3277,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     && mCameraWakeScreen;
             mCameraLaunch = EVSettings.System.getIntForUser(resolver,
                     EVSettings.System.CAMERA_LAUNCH, 0, UserHandle.USER_CURRENT) == 1;
+
+            // Screenshot listener
+            updateScreenshotListener();
 
             // Configure wake gesture.
             boolean wakeGestureEnabledSetting = Settings.Secure.getIntForUser(resolver,

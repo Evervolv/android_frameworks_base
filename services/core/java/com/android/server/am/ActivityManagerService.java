@@ -489,6 +489,8 @@ import dalvik.system.VMRuntime;
 
 import libcore.util.EmptyArray;
 
+import evervolv.provider.EVSettings;
+
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileNotFoundException;
@@ -1614,6 +1616,10 @@ public class ActivityManagerService extends IActivityManager.Stub
 
     static final HostingRecord sNullHostingRecord =
             new HostingRecord(HostingRecord.HOSTING_TYPE_EMPTY);
+
+    final ScreenshotGestureObserver mScreenshotGestureObserver;
+    private boolean mScreenshotGesture;
+
     /**
      * Used to notify activity lifecycle events.
      */
@@ -2451,6 +2457,7 @@ public class ActivityManagerService extends IActivityManager.Stub
         mComponentAliasResolver = new ComponentAliasResolver(this);
         mApplicationSharedMemoryReadOnlyFd = null;
         sCreatorTokenCacheCleaner = new Handler(mHandlerThread.getLooper());
+        mScreenshotGestureObserver = null;
     }
 
     // Note: This method is invoked on the main thread but may need to attach various
@@ -2566,6 +2573,7 @@ public class ActivityManagerService extends IActivityManager.Stub
             Slog.e(TAG, "Failed to get read only fd for shared memory", e);
             throw new RuntimeException(e);
         }
+        mScreenshotGestureObserver = new ScreenshotGestureObserver(mHandler, mContext);
     }
 
     void setBroadcastQueueForTest(BroadcastQueue broadcastQueue) {
@@ -8950,6 +8958,7 @@ public class ActivityManagerService extends IActivityManager.Stub
                     com.android.internal.R.integer.config_backgroundUserScheduledStopTimeSecs);
             mUserController.setInitialConfig(userSwitchUiEnabled, maxRunningUsers,
                     delayUserDataLocking, backgroundUserScheduledStopTimeSecs);
+            mScreenshotGestureObserver.registerObserver();
         }
         mAppErrors.loadAppsNotReportingCrashesFromConfig(res.getString(
                 com.android.internal.R.string.config_appsNotReportingCrashes));
@@ -19437,5 +19446,39 @@ public class ActivityManagerService extends IActivityManager.Stub
 
     private IBackupManager getBackupManager() {
         return IBackupManager.Stub.asInterface(ServiceManager.getService(Context.BACKUP_SERVICE));
+    }
+
+    private class ScreenshotGestureObserver extends ContentObserver {
+
+        private final Context mContext;
+
+        public ScreenshotGestureObserver(Handler handler, Context context) {
+            super(handler);
+            mContext = context;
+        }
+
+        public void registerObserver() {
+            mContext.getContentResolver().registerContentObserver(
+                    EVSettings.System.getUriFor(EVSettings.System.SWIPE_TO_SCREENSHOT),
+                    false, this, UserHandle.USER_ALL);
+            update();
+        }
+
+        private void update() {
+            mScreenshotGesture = EVSettings.System.getIntForUser(mContext.getContentResolver(),
+                    EVSettings.System.SWIPE_TO_SCREENSHOT, 0, UserHandle.USER_CURRENT) == 1;
+        }
+
+        public void onChange(boolean selfChange) {
+            update();
+        }
+    }
+
+    @Override
+    public boolean isScreenshotGestureActive() {
+        synchronized (this) {
+            return mScreenshotGesture
+                    && SystemProperties.getBoolean("sys.android.screenshot", false);
+        }
     }
 }
