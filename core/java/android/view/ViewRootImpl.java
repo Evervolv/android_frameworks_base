@@ -7424,6 +7424,10 @@ public final class ViewRootImpl implements ViewParent,
                 mLastClickToolType = event.getToolType(event.getActionIndex());
             }
 
+            if (isScreenshotGestureActive(event)) {
+                event.setAction(MotionEvent.ACTION_CANCEL);
+            }
+
             mAttachInfo.mUnbufferedDispatchRequested = false;
             mAttachInfo.mHandlingPointerEvent = true;
             // If the event was fully handled by the handwriting initiator, then don't dispatch it
@@ -12278,5 +12282,13 @@ public final class ViewRootImpl implements ViewParent,
      */
     void setBackKeyCallbackForWindowlessWindow(@NonNull Predicate<KeyEvent> callback) {
         mWindowlessBackKeyCallback = callback;
+    }
+
+    private boolean isScreenshotGestureActive(MotionEvent event) {
+        if (event.getPointerCount() != 3) return false;
+        try {
+            return ActivityManager.getService().isScreenshotGestureActive();
+        } catch (RemoteException e) { }
+        return false;
     }
 }
