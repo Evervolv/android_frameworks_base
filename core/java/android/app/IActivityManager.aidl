@@ -1038,4 +1038,9 @@ interface IActivityManager {
      */
     @EnforcePermission("INTERACT_ACROSS_USERS_FULL")
     IBinder refreshIntentCreatorToken(in Intent intent);
+
+    /**
+     *  Should disable touch if three fingers to screen shot is active?
+     */
+    boolean isScreenshotGestureActive();
 }
