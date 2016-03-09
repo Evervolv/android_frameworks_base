@@ -196,6 +196,8 @@ import com.android.server.statusbar.StatusBarManagerInternal;
 import com.android.server.utils.PriorityDump;
 import com.android.server.wm.WindowManagerInternal;
 
+import com.evervolv.internal.input.TouchHardwareManager;
+
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -635,6 +637,8 @@ public final class InputMethodManagerService implements IInputMethodManagerImpl.
     @SharedByAllUsersField
     @NonNull
     private final ImeTrackerService mImeTrackerService;
+
+    private TouchHardwareManager mTouchHardwareManager;
 
     @GuardedBy("ImfLock.class")
     private void onSecureSettingsChangedLocked(@NonNull String key, @UserIdInt int userId) {
@@ -1430,6 +1434,8 @@ public final class InputMethodManagerService implements IInputMethodManagerImpl.
                     newSettings.getEnabledInputMethodList());
         }
 
+        mTouchHardwareManager.updateAll();
+
         ProtoLog.v(IMMS_DEBUG, "Switching user stage 3/3. newUserId=%s selectedIme=%s", newUserId,
                 newSettings.getSelectedInputMethod());
 
@@ -1500,6 +1506,10 @@ public final class InputMethodManagerService implements IInputMethodManagerImpl.
                 }
 
                 mMyPackageMonitor.register(mContext, UserHandle.ALL, mIoHandler);
+
+                mTouchHardwareManager = new TouchHardwareManager(mContext);
+                mTouchHardwareManager.onRegister();
+
                 SecureSettingsChangeCallback.register(mHandler, mContext.getContentResolver(),
                         new String[] {
                                 Settings.Secure.ACCESSIBILITY_SOFT_KEYBOARD_MODE,
