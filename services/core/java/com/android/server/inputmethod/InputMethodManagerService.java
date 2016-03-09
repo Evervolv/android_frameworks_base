@@ -54,6 +54,10 @@ import static com.android.server.inputmethod.ImeVisibilityStateComputer.STATE_HI
 import static com.android.server.inputmethod.InputMethodBindingController.TIME_TO_RECONNECT;
 import static com.android.server.inputmethod.InputMethodUtils.isSoftInputModeStateVisibleAllowed;
 
+import static evervolv.hardware.HardwareManager.FEATURE_HIGH_TOUCH_POLLING_RATE;
+import static evervolv.hardware.HardwareManager.FEATURE_HIGH_TOUCH_SENSITIVITY;
+import static evervolv.hardware.HardwareManager.FEATURE_TOUCH_HOVERING;
+
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 import android.Manifest;
@@ -186,6 +190,9 @@ import com.android.server.pm.UserManagerInternal;
 import com.android.server.statusbar.StatusBarManagerInternal;
 import com.android.server.utils.PriorityDump;
 import com.android.server.wm.WindowManagerInternal;
+
+import evervolv.hardware.HardwareManager;
+import evervolv.provider.EVSettings;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
@@ -415,6 +422,8 @@ public final class InputMethodManagerService implements IInputMethodManagerImpl.
             dumpDebug(proto, InputMethodManagerServiceTraceProto.INPUT_METHOD_MANAGER_SERVICE);
         }
     };
+
+    private HardwareManager mHardwareManager;
 
     static class SessionState {
         final ClientState mClient;
@@ -752,6 +761,20 @@ public final class InputMethodManagerService implements IInputMethodManagerImpl.
                     Settings.Secure.ACCESSIBILITY_SOFT_KEYBOARD_MODE), false, this, userId);
             resolver.registerContentObserver(Settings.Secure.getUriFor(
                     STYLUS_HANDWRITING_ENABLED), false, this);
+            if (mHardwareManager.isSupported(FEATURE_HIGH_TOUCH_POLLING_RATE)) {
+                resolver.registerContentObserver(EVSettings.System.getUriFor(
+                        EVSettings.System.HIGH_TOUCH_POLLING_RATE_ENABLE),
+                        false, this, userId);
+            }
+            if (mHardwareManager.isSupported(FEATURE_HIGH_TOUCH_SENSITIVITY)) {
+                resolver.registerContentObserver(EVSettings.System.getUriFor(
+                        EVSettings.System.HIGH_TOUCH_SENSITIVITY_ENABLE),
+                        false, this, userId);
+            }
+            if (mHardwareManager.isSupported(FEATURE_TOUCH_HOVERING)) {
+                resolver.registerContentObserver(EVSettings.Secure.getUriFor(
+                        EVSettings.Secure.FEATURE_TOUCH_HOVERING), false, this, userId);
+            }
             mRegistered = true;
         }
 
@@ -763,6 +786,12 @@ public final class InputMethodManagerService implements IInputMethodManagerImpl.
                     Settings.Secure.ACCESSIBILITY_SOFT_KEYBOARD_MODE);
             final Uri stylusHandwritingEnabledUri = Settings.Secure.getUriFor(
                     STYLUS_HANDWRITING_ENABLED);
+            final Uri highTouchPollingRateUri = EVSettings.System.getUriFor(
+                    EVSettings.System.HIGH_TOUCH_POLLING_RATE_ENABLE);
+            final Uri touchSensitivityUri = EVSettings.System.getUriFor(
+                    EVSettings.System.HIGH_TOUCH_SENSITIVITY_ENABLE);
+            final Uri touchHoveringUri = EVSettings.Secure.getUriFor(
+                    EVSettings.Secure.FEATURE_TOUCH_HOVERING);
             synchronized (ImfLock.class) {
                 if (showImeUri.equals(uri)) {
                     mMenuController.updateKeyboardFromSettingsLocked();
@@ -784,6 +813,12 @@ public final class InputMethodManagerService implements IInputMethodManagerImpl.
                     InputMethodManager.invalidateLocalStylusHandwritingAvailabilityCaches();
                     InputMethodManager
                             .invalidateLocalConnectionlessStylusHandwritingAvailabilityCaches();
+                } else if (highTouchPollingRateUri.equals(uri)) {
+                    updateTouchPollingRate();
+                } else if (touchSensitivityUri.equals(uri)) {
+                    updateTouchSensitivity();
+                } else if (touchHoveringUri.equals(uri)) {
+                    updateTouchHovering();
                 } else {
                     boolean enabledChanged = false;
                     String newEnabled = InputMethodSettingsRepository.get(mCurrentUserId)
@@ -1479,6 +1514,10 @@ public final class InputMethodManagerService implements IInputMethodManagerImpl.
                     newSettings.getEnabledInputMethodList());
         }
 
+        updateTouchHovering();
+        updateTouchPollingRate();
+        updateTouchSensitivity();
+
         if (DEBUG) {
             Slog.d(TAG, "Switching user stage 3/3. newUserId=" + newUserId
                     + " selectedIme=" + newSettings.getSelectedInputMethod());
@@ -1505,6 +1544,14 @@ public final class InputMethodManagerService implements IInputMethodManagerImpl.
             if (!mSystemReady) {
                 mSystemReady = true;
                 final int currentUserId = mCurrentUserId;
+
+                // Must happen before registerContentObserverLocked
+                mHardwareManager = HardwareManager.getInstance(mContext);
+
+                updateTouchHovering();
+                updateTouchPollingRate();
+                updateTouchSensitivity();
+
                 mStatusBarManagerInternal =
                         LocalServices.getService(StatusBarManagerInternal.class);
                 hideStatusBarIconLocked();
@@ -3060,6 +3107,33 @@ public final class InputMethodManagerService implements IInputMethodManagerImpl.
                     settings.getMethodMap(), userId);
         }
         sendOnNavButtonFlagsChangedLocked();
+    }
+
+    private void updateTouchPollingRate() {
+        if (!mHardwareManager.isSupported(FEATURE_HIGH_TOUCH_POLLING_RATE)) {
+            return;
+        }
+        final boolean enabled = EVSettings.System.getInt(mContext.getContentResolver(),
+                EVSettings.System.HIGH_TOUCH_POLLING_RATE_ENABLE, 0) == 1;
+        mHardwareManager.set(FEATURE_HIGH_TOUCH_POLLING_RATE, enabled);
+    }
+
+    private void updateTouchSensitivity() {
+        if (!mHardwareManager.isSupported(FEATURE_HIGH_TOUCH_SENSITIVITY)) {
+            return;
+        }
+        final boolean enabled = EVSettings.System.getInt(mContext.getContentResolver(),
+                EVSettings.System.HIGH_TOUCH_SENSITIVITY_ENABLE, 0) == 1;
+        mHardwareManager.set(FEATURE_HIGH_TOUCH_SENSITIVITY, enabled);
+    }
+
+    private void updateTouchHovering() {
+        if (!mHardwareManager.isSupported(FEATURE_TOUCH_HOVERING)) {
+            return;
+        }
+        final boolean enabled = EVSettings.Secure.getInt(mContext.getContentResolver(),
+                EVSettings.Secure.FEATURE_TOUCH_HOVERING, 0) == 1;
+        mHardwareManager.set(FEATURE_TOUCH_HOVERING, enabled);
     }
 
     @GuardedBy("ImfLock.class")
