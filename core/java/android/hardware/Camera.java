@@ -301,7 +301,12 @@ public class Camera {
      *   cameras or an error was encountered enumerating them.
      */
     public static int getNumberOfCameras() {
-        return getNumberOfCameras(ActivityThread.currentApplication().getApplicationContext());
+        int numberOfCameras =
+                getNumberOfCameras(ActivityThread.currentApplication().getApplicationContext());
+        if (!shouldExposeAuxCamera() && numberOfCameras > 2) {
+            numberOfCameras = 2;
+        }
+        return numberOfCameras;
     }
 
     /**
