@@ -845,6 +845,11 @@
     <protected-broadcast android:name="com.android.uwb.uwbcountrycode.GEOCODE_RETRY" />
     <protected-broadcast android:name="android.telephony.action.ACTION_SATELLITE_SUBSCRIBER_ID_LIST_CHANGED" />
 
+    <!-- LineageOS additions -->
+
+    <!-- Used to launch a common app (FlipFlap) for devices with flip cover. -->
+    <protected-broadcast android:name="lineageos.intent.action.LID_STATE_CHANGED" />
+
     <!-- ====================================================================== -->
     <!--                          RUNTIME PERMISSIONS                           -->
     <!-- ====================================================================== -->
