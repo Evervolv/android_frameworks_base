@@ -2169,6 +2169,15 @@ public final class PowerManagerService extends SystemService
                 }
             } else {
                 if (eventTime > powerGroup.getLastUserActivityTimeLocked()) {
+                    powerGroup.setButtonPressedLocked(
+                            event == PowerManager.USER_ACTIVITY_EVENT_BUTTON);
+                    final boolean buttonLightOnKeypressOnly =
+                            mButtonManager.getButtonLightOnKeypress();
+                    if ((buttonLightOnKeypressOnly && powerGroup.getButtonPressedLocked())
+                            || eventTime == powerGroup.getLastWakeTimeLocked()) {
+                        powerGroup.setButtonPressedLocked(true);
+                        powerGroup.setLastButtonActivityTimeLocked(eventTime);
+                    }
                     powerGroup.setLastUserActivityTimeLocked(eventTime, event);
                     mDirty |= DIRTY_USER_ACTIVITY;
                     if (event == PowerManager.USER_ACTIVITY_EVENT_BUTTON) {
@@ -2984,16 +2993,33 @@ public final class PowerManagerService extends SystemService
                                 buttonBrightness = userButtonBrightness;
                             }
 
-                            int buttonTimeout = mButtonManager.getButtonTimeout();
-                            if (buttonTimeout != 0
-                                    && now > lastUserActivityTime + buttonTimeout) {
+                            final boolean buttonLightOnKeypressOnly = mButtonManager.getButtonLightOnKeypress();
+                            if (!buttonLightOnKeypressOnly) {
+                                powerGroup.setLastButtonActivityTimeLocked(
+                                        lastUserActivityTime);
+                            }
+                            final int buttonTimeout = mButtonManager.getButtonTimeout();
+                            final long lastButtonActivityTimeout = buttonTimeout +
+                                    powerGroup.getLastButtonActivityTimeLocked();
+
+                            if (buttonTimeout != 0 && now > lastButtonActivityTimeout) {
                                 mButtonsLight.setBrightness(PowerManager.BRIGHTNESS_OFF_FLOAT);
+                                powerGroup.setButtonOnLocked(false);
                             } else {
-                                if (!mProximityPositive) {
+                                if (!mProximityPositive && (!buttonLightOnKeypressOnly ||
+                                        powerGroup.getButtonPressedLocked())) {
                                     mButtonsLight.setBrightness(buttonBrightness);
+                                    powerGroup.setButtonPressedLocked(false);
                                     if (buttonBrightness != PowerManager.BRIGHTNESS_OFF_FLOAT && buttonTimeout != 0) {
-                                        nextTimeout = now + buttonTimeout;
+                                        powerGroup.setButtonOnLocked(true);
+                                        if (now + buttonTimeout < nextTimeout) {
+                                            groupNextTimeout = now + buttonTimeout;
+                                        }
                                     }
+                                } else if (buttonLightOnKeypressOnly &&
+                                        lastButtonActivityTimeout < nextTimeout &&
+                                        powerGroup.getButtonOnLocked()) {
+                                    groupNextTimeout = lastButtonActivityTimeout;
                                 }
                             }
                         }
@@ -3003,6 +3029,7 @@ public final class PowerManagerService extends SystemService
                             groupUserActivitySummary = USER_ACTIVITY_SCREEN_DIM;
                             if (mButtonsLight != null && wakefulness == WAKEFULNESS_AWAKE) {
                                 mButtonsLight.setBrightness(PowerManager.BRIGHTNESS_OFF_FLOAT);
+                                powerGroup.setButtonOnLocked(false);
                             }
                         }
                     }
