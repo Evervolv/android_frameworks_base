@@ -2173,8 +2173,9 @@ public final class PowerManagerService extends SystemService
                             event == PowerManager.USER_ACTIVITY_EVENT_BUTTON);
                     final boolean buttonLightOnKeypressOnly =
                             mButtonManager.getButtonLightOnKeypress();
-                    if ((buttonLightOnKeypressOnly && powerGroup.getButtonPressedLocked())
-                            || eventTime == powerGroup.getLastWakeTimeLocked()) {
+                    if (eventTime == powerGroup.getLastWakeTimeLocked() ||
+                            (buttonLightOnKeypressOnly && powerGroup.getButtonPressedLocked() &&
+                            (flags & PowerManager.USER_ACTIVITY_FLAG_NO_BUTTON_LIGHTS) == 0)) {
                         powerGroup.setButtonPressedLocked(true);
                         powerGroup.setLastButtonActivityTimeLocked(eventTime);
                     }
