@@ -73,6 +73,7 @@ android_library {
         "//frameworks/libs/systemui:msdl",
         "//frameworks/libs/systemui:view_capture",
         "am_flags_lib",
+        "com.evervolv.platform.internal",
     ],
     resource_dirs: [
         "res",
