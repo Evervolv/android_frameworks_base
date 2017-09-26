@@ -143,6 +143,7 @@ java_library_static {
         "service-rkp.stubs.system_server",
         "service-sdksandbox.stubs.system_server",
         "device_policy_aconfig_flags_lib",
+        "com.evervolv.platform.internal",
     ],
     plugins: ["ImmutabilityAnnotationProcessor"],
 

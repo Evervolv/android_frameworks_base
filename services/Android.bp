@@ -211,6 +211,7 @@ java_library {
         "service-permission.stubs.system_server",
         "service-rkp.stubs.system_server",
         "service-sdksandbox.stubs.system_server",
+        "com.evervolv.platform.internal",
     ],
 
     vintf_fragments: [
