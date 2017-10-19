@@ -511,6 +511,20 @@
             </intent-filter>
         </activity-alias>
 
+        <activity-alias
+                  android:name=".tuner.StatusBarTuner"
+                  android:targetActivity=".tuner.TunerActivity"
+                  android:icon="@drawable/tuner"
+                  android:theme="@style/TunerSettings"
+                  android:label="@string/status_bar"
+                  android:process=":tuner"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="com.android.settings.action.STATUS_BAR_TUNER" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity-alias>
+
         <!-- Springboard for launching the share and edit activity. This needs to be in the main
              system ui process since we need to notify the status bar to dismiss the keyguard -->
         <receiver android:name=".screenshot.ActionProxyReceiver"
