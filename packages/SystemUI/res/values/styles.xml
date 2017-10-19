@@ -674,13 +674,7 @@
         <item name="android:textColor">@color/media_dialog_item_main_content</item>
     </style>
 
-    <style name="TunerSettings" parent="@android:style/Theme.DeviceDefault.Settings">
-        <item name="android:windowActionBar">false</item>
-        <item name="preferenceTheme">@style/TunerPreferenceTheme</item>
-    </style>
-
-    <style name="TunerPreferenceTheme" parent="@style/PreferenceThemeOverlay.SettingsBase">
-    </style>
+    <style name="TunerSettings" parent="@style/Theme.SubSettingsBase" />
 
     <style name="TextAppearance.NotificationInfo.Confirmation">
         <item name="android:textSize">14sp</item>
