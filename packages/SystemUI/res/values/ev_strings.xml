@@ -46,4 +46,7 @@
     <!-- Label for current user in power menu options dialog -->
     <string name="global_action_current_user">Current</string>
     <string name="global_action_users">Users</string>
+
+    <!-- Status bar - icons -->
+    <string name="status_bar_icons_title">Status bar icons</string>
 </resources>
