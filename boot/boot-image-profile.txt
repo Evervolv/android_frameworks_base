@@ -12615,6 +12615,7 @@ HSPLandroid/os/PowerManager;->userActivity(JII)V
 HSPLandroid/os/PowerManager;->userActivity(JZ)V
 HSPLandroid/os/PowerManager;->validateWakeLockParameters(ILjava/lang/String;)V
 HSPLandroid/os/PowerManager;->wakeUp(JILjava/lang/String;)V
+HSPLandroid/os/PowerManager;->wakeUpWithProximityCheck(JILjava/lang/String;)V
 HSPLandroid/os/PowerSaveState$1;->createFromParcel(Landroid/os/Parcel;)Landroid/os/PowerSaveState;
 HSPLandroid/os/PowerSaveState$1;->createFromParcel(Landroid/os/Parcel;)Ljava/lang/Object;
 HSPLandroid/os/PowerSaveState$Builder;-><init>()V
