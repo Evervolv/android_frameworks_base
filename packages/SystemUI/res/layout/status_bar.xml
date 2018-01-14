@@ -142,6 +142,21 @@
                 android:gravity="center_vertical|end"
                 android:clipChildren="false">
 
+                <com.android.systemui.statusbar.StatusBarItemHolder
+                    android:id="@+id/network_traffic_holder"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:gravity="start|center_vertical">
+
+                    <com.evervolv.internal.statusbar.NetworkTraffic
+                        android:id="@+id/network_traffic"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:maxLines="2"
+                        android:gravity="center_vertical|start" />
+
+                </com.android.systemui.statusbar.StatusBarItemHolder>
+
                 <include
                     android:id="@+id/user_switcher_container"
                     android:layout_width="wrap_content"
