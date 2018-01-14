@@ -122,6 +122,8 @@ public class CollapsedStatusBarFragment extends Fragment implements CommandQueue
     private View mClockView;
     private View mOngoingActivityChip;
     private View mNotificationIconAreaInner;
+    private View mNetworkTraffic;
+    private MultiSourceMinAlphaController mNetworkTrafficAlphaController;
     // Visibilities come in from external system callers via disable flags, but we also sometimes
     // modify the visibilities internally. We need to store both so that we don't accidentally
     // propagate our internally modified flags for too long.
@@ -352,9 +354,13 @@ public class CollapsedStatusBarFragment extends Fragment implements CommandQueue
         mStatusBarIconController.addIconGroup(mDarkIconManager);
         mEndSideContent = mStatusBar.findViewById(R.id.status_bar_end_side_content);
         mEndSideAlphaController = new MultiSourceMinAlphaController(mEndSideContent);
+        mNetworkTraffic = mStatusBar.findViewById(R.id.network_traffic_holder);
+        mNetworkTrafficAlphaController =
+                new MultiSourceMinAlphaController(mNetworkTraffic);
         mClockView = mStatusBar.findViewById(R.id.clock);
         mOngoingActivityChip = mStatusBar.findViewById(R.id.ongoing_activity_chip);
         showEndSideContent(false);
+        showNetworkTrafficHolder(false);
         showClock(false);
         initOperatorName();
         initNotificationIconArea();
@@ -546,9 +552,11 @@ public class CollapsedStatusBarFragment extends Fragment implements CommandQueue
             if (newModel.getShowSystemInfo()) {
                 showEndSideContent(animate);
                 showOperatorName(animate);
+                showNetworkTrafficHolder(animate);
             } else {
                 hideEndSideContent(animate);
                 hideOperatorName(animate);
+                hideNetworkTrafficHolder(animate);
             }
         }
 
@@ -718,6 +726,31 @@ public class CollapsedStatusBarFragment extends Fragment implements CommandQueue
                     mKeyguardStateController.getKeyguardFadingAwayDelay());
         } else {
             mEndSideAlphaController.animateToAlpha(/*alpha*/ 1f, SOURCE_OTHER, FADE_IN_DURATION,
+                    InterpolatorsAndroidX.ALPHA_IN, FADE_IN_DELAY);
+        }
+    }
+
+    private void hideNetworkTrafficHolder(boolean animate) {
+        if (!animate) {
+            mNetworkTrafficAlphaController.setAlpha(/*alpha*/ 0f, SOURCE_OTHER);
+        } else {
+            mNetworkTrafficAlphaController.animateToAlpha(/*alpha*/ 0f, SOURCE_OTHER, FADE_OUT_DURATION,
+                    InterpolatorsAndroidX.ALPHA_OUT, /*startDelay*/ 0);
+        }
+    }
+
+    private void showNetworkTrafficHolder(boolean animate) {
+        if (!animate) {
+            mNetworkTrafficAlphaController.setAlpha(1f, SOURCE_OTHER);
+            return;
+        }
+        if (mKeyguardStateController.isKeyguardFadingAway()) {
+            mNetworkTrafficAlphaController.animateToAlpha(/*alpha*/ 1f, SOURCE_OTHER,
+                    mKeyguardStateController.getKeyguardFadingAwayDuration(),
+                    InterpolatorsAndroidX.LINEAR_OUT_SLOW_IN,
+                    mKeyguardStateController.getKeyguardFadingAwayDelay());
+        } else {
+            mNetworkTrafficAlphaController.animateToAlpha(/*alpha*/ 1f, SOURCE_OTHER, FADE_IN_DURATION,
                     InterpolatorsAndroidX.ALPHA_IN, FADE_IN_DELAY);
         }
     }
