@@ -1673,7 +1673,7 @@ class StorageManagerService extends IStorageManager.Stub
 
             // Adoptable public disks are visible to apps, since they meet
             // public API requirement of being in a stable location.
-            if (vol.getDisk().isAdoptable()) {
+            if (vol.getDisk().isAdoptable() || vol.getDisk().isSd()) {
                 vol.setMountFlags(vol.getMountFlags() | VolumeInfo.MOUNT_FLAG_VISIBLE_FOR_WRITE);
             }
 
