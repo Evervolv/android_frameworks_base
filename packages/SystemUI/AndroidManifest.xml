@@ -362,6 +362,9 @@
     <protected-broadcast android:name="com.android.systemui.action.ACTION_LAUNCH_MEDIA_OUTPUT_BROADCAST_DIALOG" />
     <protected-broadcast android:name="com.android.systemui.STARTED" />
 
+    <!-- Reader QS Tile -->
+    <uses-permission android:name="evervolv.permission.MANAGE_LIVEDISPLAY" />
+
     <application
         android:name=".SystemUIApplication"
         android:persistent="true"
