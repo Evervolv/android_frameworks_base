@@ -23,6 +23,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.TypedArray;
+import android.database.ContentObserver;
 import android.graphics.Rect;
 import android.icu.lang.UCharacter;
 import android.icu.text.DateTimePatternGenerator;
@@ -59,6 +60,8 @@ import com.android.systemui.statusbar.phone.ui.StatusBarIconController;
 import com.android.systemui.statusbar.policy.ConfigurationController.ConfigurationListener;
 import com.android.systemui.tuner.TunerService;
 import com.android.systemui.tuner.TunerService.Tunable;
+
+import evervolv.provider.EVSettings;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -103,7 +106,8 @@ public class Clock extends TextView implements
     private static final int AM_PM_STYLE_SMALL   = 1;
     private static final int AM_PM_STYLE_GONE    = 2;
 
-    private final int mAmPmStyle;
+    private int mAmPmStyle = AM_PM_STYLE_GONE;
+    private ContentObserver mContentObserver;
     private boolean mShowSeconds;
     private Handler mSecondsHandler;
 
@@ -139,7 +143,22 @@ public class Clock extends TextView implements
                 R.styleable.Clock,
                 0, 0);
         try {
-            mAmPmStyle = a.getInt(R.styleable.Clock_amPmStyle, AM_PM_STYLE_GONE);
+            mAmPmStyle = EVSettings.System.getInt(mContext.getContentResolver(),
+                    EVSettings.System.STATUS_BAR_AM_PM, AM_PM_STYLE_GONE);
+            mContentObserver = new ContentObserver(null) {
+                @Override
+                public void onChange(boolean selfChange) {
+                    mAmPmStyle = EVSettings.System.getInt(
+                            mContext.getContentResolver(),
+                            EVSettings.System.STATUS_BAR_AM_PM, AM_PM_STYLE_GONE);
+                    // Force refresh of dependent variables.
+                    mContentDescriptionFormatString = "";
+                    mDateTimePatternGenerator = null;
+                    mContext.getMainExecutor().execute(() -> {
+                        updateClock(true);
+                    });
+                }
+            };
             mNonAdaptedColor = getCurrentTextColor();
         } finally {
             a.recycle();
@@ -204,6 +223,9 @@ public class Clock extends TextView implements
                     Dependency.get(Dependency.TIME_TICK_HANDLER), UserHandle.ALL);
             Dependency.get(TunerService.class).addTunable(this, CLOCK_SECONDS,
                     StatusBarIconController.ICON_HIDE_LIST);
+            mContext.getContentResolver().registerContentObserver(
+                    EVSettings.System.getUriFor(EVSettings.System.STATUS_BAR_AM_PM),
+                    false, mContentObserver);
             mCommandQueue.addCallback(this);
             mUserTracker.addCallback(mUserChangedCallback, mContext.getMainExecutor());
             mCurrentUserId = mUserTracker.getUserId();
@@ -234,6 +256,7 @@ public class Clock extends TextView implements
         if (mAttached) {
             mBroadcastDispatcher.unregisterReceiver(mIntentReceiver);
             mAttached = false;
+            mContext.getContentResolver().unregisterContentObserver(mContentObserver);
             Dependency.get(TunerService.class).removeTunable(this);
             mCommandQueue.removeCallback(this);
             mUserTracker.removeCallback(mUserChangedCallback);
@@ -302,17 +325,21 @@ public class Clock extends TextView implements
         super.setVisibility(visibility);
     }
 
-    final void updateClock() {
-        if (mDemoMode) return;
+    final void updateClock(boolean forceTextUpdate) {
+        if (mDemoMode || mCalendar == null) return;
         mCalendar.setTimeInMillis(System.currentTimeMillis());
         CharSequence smallTime = getSmallTime();
         // Setting text actually triggers a layout pass (because the text view is set to
         // wrap_content width and TextView always relayouts for this). Avoid needless
         // relayout if the text didn't actually change.
-        if (!TextUtils.equals(smallTime, getText())) {
+        if (forceTextUpdate || !TextUtils.equals(smallTime, getText())) {
             setText(smallTime);
         }
         setContentDescription(mContentDescriptionFormat.format(mCalendar.getTime()));
+    }
+
+    final void updateClock() {
+        updateClock(false);
     }
 
     /**
