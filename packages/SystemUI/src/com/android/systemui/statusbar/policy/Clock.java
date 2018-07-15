@@ -60,6 +60,8 @@ import com.android.systemui.statusbar.policy.ConfigurationController.Configurati
 import com.android.systemui.tuner.TunerService;
 import com.android.systemui.tuner.TunerService.Tunable;
 
+import evervolv.provider.EVSettings;
+
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -74,6 +76,8 @@ public class Clock extends TextView implements
         Tunable,
         CommandQueue.Callbacks,
         DarkReceiver, ConfigurationListener {
+
+    public static final String CLOCK_STYLE = "evsystem:" + EVSettings.System.STATUS_BAR_AM_PM;
 
     public static final String CLOCK_SECONDS = "clock_seconds";
     private static final String CLOCK_SUPER_PARCELABLE = "clock_super_parcelable";
@@ -103,7 +107,7 @@ public class Clock extends TextView implements
     private static final int AM_PM_STYLE_SMALL   = 1;
     private static final int AM_PM_STYLE_GONE    = 2;
 
-    private final int mAmPmStyle;
+    private int mAmPmStyle = AM_PM_STYLE_GONE;
     private boolean mShowSeconds;
     private Handler mSecondsHandler;
 
@@ -139,7 +143,7 @@ public class Clock extends TextView implements
                 R.styleable.Clock,
                 0, 0);
         try {
-            mAmPmStyle = a.getInt(R.styleable.Clock_amPmStyle, AM_PM_STYLE_GONE);
+            mAmPmStyle = a.getInt(R.styleable.Clock_amPmStyle, mAmPmStyle);
             mNonAdaptedColor = getCurrentTextColor();
         } finally {
             a.recycle();
@@ -202,7 +206,7 @@ public class Clock extends TextView implements
             // The receiver will return immediately if the view does not have a Handler yet.
             mBroadcastDispatcher.registerReceiverWithHandler(mIntentReceiver, filter,
                     Dependency.get(Dependency.TIME_TICK_HANDLER), UserHandle.ALL);
-            Dependency.get(TunerService.class).addTunable(this, CLOCK_SECONDS,
+            Dependency.get(TunerService.class).addTunable(this, CLOCK_SECONDS, CLOCK_STYLE,
                     StatusBarIconController.ICON_HIDE_LIST);
             mCommandQueue.addCallback(this);
             mUserTracker.addCallback(mUserChangedCallback, mContext.getMainExecutor());
@@ -302,17 +306,21 @@ public class Clock extends TextView implements
         super.setVisibility(visibility);
     }
 
-    final void updateClock() {
-        if (mDemoMode) return;
+    final void updateClock(boolean forceTextUpdate) {
+        if (mDemoMode || mCalendar == null) return;
         mCalendar.setTimeInMillis(System.currentTimeMillis());
         CharSequence smallTime = getSmallTime();
         // Setting text actually triggers a layout pass (because the text view is set to
         // wrap_content width and TextView always relayouts for this). Avoid needless
         // relayout if the text didn't actually change.
-        if (!TextUtils.equals(smallTime, getText())) {
+        if (forceTextUpdate || !TextUtils.equals(smallTime, getText())) {
             setText(smallTime);
         }
         setContentDescription(mContentDescriptionFormat.format(mCalendar.getTime()));
+    }
+
+    final void updateClock() {
+        updateClock(false);
     }
 
     /**
@@ -350,6 +358,12 @@ public class Clock extends TextView implements
             setClockVisibleByUser(!StatusBarIconController.getIconHideList(getContext(), newValue)
                     .contains("clock"));
             updateClockVisibility();
+        } else if (CLOCK_STYLE.equals(key)) {
+            mAmPmStyle = TunerService.parseInteger(newValue, AM_PM_STYLE_GONE);
+            // Force refresh of dependent variables.
+            mContentDescriptionFormatString = "";
+            mDateTimePatternGenerator = null;
+            updateClock(true);
         }
     }
 
