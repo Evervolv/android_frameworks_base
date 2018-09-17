@@ -220,6 +220,7 @@ import android.view.animation.AnimationUtils;
 import android.view.autofill.AutofillManagerInternal;
 import android.widget.Toast;
 
+import evervolv.hardware.HardwareManager;
 import evervolv.provider.EVSettings;
 
 import com.android.internal.R;
@@ -669,6 +670,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     boolean mAssistPressed;
     boolean mAppSwitchLongPressed;
 
+    private int mForceNavbar = -1;
+
     // Tracks user-customisable behavior for certain key events
     private Action mHomeLongPressAction;
     private Action mHomeDoubleTapAction;
@@ -818,6 +821,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     private static final int MSG_CAMERA_LONG_PRESS = 28;
 
     private ScreenshotGestureListener mScreenshotGesture;
+
+    private HardwareManager mHardwareManager;
 
     private CameraManager mCameraManager;
     private CameraAvailbilityListener mCameraAvailabilityListener;
@@ -1032,6 +1037,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     UserHandle.USER_ALL);
             resolver.registerContentObserver(Settings.Secure.getUriFor(
                     Settings.Secure.NAV_BAR_KIDS_MODE), false, this,
+                    UserHandle.USER_ALL);
+            resolver.registerContentObserver(EVSettings.Secure.getUriFor(
+                    EVSettings.Secure.DEV_FORCE_SHOW_NAVBAR), false, this,
                     UserHandle.USER_ALL);
             resolver.registerContentObserver(EVSettings.System.getUriFor(
                     EVSettings.System.KEY_HOME_LONG_PRESS_ACTION), false, this,
@@ -2424,6 +2432,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         mGlobalActionsFactory = injector.getGlobalActionsFactory();
         mLockPatternUtils = new LockPatternUtils(mContext);
         mLogger = new MetricsLogger();
+        mHardwareManager = HardwareManager.getInstance(mContext);
 
         Resources res = mContext.getResources();
         mWakeOnDpadKeyPress =
@@ -2477,7 +2486,6 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         });
         mWakeGestureListener = new MyWakeGestureListener(mContext, mHandler);
         mSettingsObserver = new SettingsObserver(mHandler);
-        mSettingsObserver.observe();
 
         mCameraManager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
         mCameraAvailabilityListener = new CameraAvailbilityListener();
@@ -3129,6 +3137,10 @@ public class PhoneWindowManager implements WindowManagerPolicy {
 
         int activeHardwareKeys = mDeviceHardwareKeys;
 
+        if (mForceNavbar == 1) {
+            activeHardwareKeys = 0;
+        }
+
         final boolean hasMenu = (activeHardwareKeys & KEY_MASK_MENU) != 0;
         final boolean hasAssist = (activeHardwareKeys & KEY_MASK_ASSIST) != 0;
         final boolean hasAppSwitch = (activeHardwareKeys & KEY_MASK_APP_SWITCH) != 0;
@@ -3288,6 +3300,17 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             if (mWakeGestureEnabledSetting != wakeGestureEnabledSetting) {
                 mWakeGestureEnabledSetting = wakeGestureEnabledSetting;
                 updateWakeGestureListenerLp();
+            }
+
+            int forceNavbar = EVSettings.Secure.getIntForUser(resolver,
+                    EVSettings.Secure.DEV_FORCE_SHOW_NAVBAR, 0,
+                    UserHandle.USER_CURRENT);
+            if (forceNavbar != mForceNavbar) {
+                mForceNavbar = forceNavbar;
+                if (mHardwareManager.isSupported(HardwareManager.FEATURE_KEY_DISABLE)) {
+                    mHardwareManager.set(HardwareManager.FEATURE_KEY_DISABLE,
+                            mForceNavbar == 1);
+                }
             }
 
             // use screen off timeout setting as the timeout for the lockscreen
@@ -7209,6 +7232,10 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         if (mVrManagerInternal != null) {
             mVrManagerInternal.addPersistentVrModeStateListener(mPersistentVrModeListener);
         }
+
+        // Ensure observe happens in systemReady() since we need
+        // LineageHardwareService to be up and running
+        mSettingsObserver.observe();
 
         readCameraLensCoverState();
         updateUiMode();
