@@ -1146,6 +1146,8 @@ public final class PowerManagerService extends SystemService
     private static native boolean nativeSetPowerMode(int mode, boolean enabled);
     private static native boolean nativeForceSuspend();
 
+    private boolean mForceNavbar;
+
     // Whether proximity check on wake is enabled by default
     private boolean mProximityWakeDefault;
 
@@ -1487,6 +1489,9 @@ public final class PowerManagerService extends SystemService
         resolver.registerContentObserver(EVSettings.System.getUriFor(
                 EVSettings.System.PROXIMITY_ON_WAKE),
                 false, mSettingsObserver, UserHandle.USER_ALL);
+        resolver.registerContentObserver(EVSettings.Secure.getUriFor(
+                EVSettings.Secure.DEV_FORCE_SHOW_NAVBAR),
+                false, mSettingsObserver, UserHandle.USER_ALL);
 
         // Register for broadcasts from other components of the system.
         IntentFilter filter = new IntentFilter();
@@ -1619,6 +1624,10 @@ public final class PowerManagerService extends SystemService
         mProximityWakeEnabled = EVSettings.System.getIntForUser(resolver,
                 EVSettings.System.PROXIMITY_ON_WAKE, mProximityWakeDefault ? 1 : 0,
                 UserHandle.USER_CURRENT) == 1;
+
+        mForceNavbar = EVSettings.Secure.getIntForUser(resolver,
+                EVSettings.Secure.DEV_FORCE_SHOW_NAVBAR,
+                0, UserHandle.USER_CURRENT) == 1;
 
         mDirty |= DIRTY_SETTINGS;
     }
@@ -2986,12 +2995,14 @@ public final class PowerManagerService extends SystemService
                         groupUserActivitySummary = USER_ACTIVITY_SCREEN_BRIGHT;
                         if (mButtonsLight != null && wakefulness == WAKEFULNESS_AWAKE) {
                             float buttonBrightness = PowerManager.BRIGHTNESS_OFF_FLOAT;
-                            float userButtonBrightness = mButtonManager.getButtonBrightness();
-                            if (isValidBrightness(mButtonBrightnessOverrideFromWindowManager)
-                                    && mButtonBrightnessOverrideFromWindowManager > PowerManager.BRIGHTNESS_MIN) {
-                                buttonBrightness = mButtonBrightnessOverrideFromWindowManager;
-                            } else if (isValidBrightness(userButtonBrightness)) {
-                                buttonBrightness = userButtonBrightness;
+                            if (!mForceNavbar) {
+                                float userButtonBrightness = mButtonManager.getButtonBrightness();
+                                if (isValidBrightness(mButtonBrightnessOverrideFromWindowManager)
+                                        && mButtonBrightnessOverrideFromWindowManager > PowerManager.BRIGHTNESS_MIN) {
+                                    buttonBrightness = mButtonBrightnessOverrideFromWindowManager;
+                                } else if (isValidBrightness(userButtonBrightness)) {
+                                    buttonBrightness = userButtonBrightness;
+                                }
                             }
 
                             final boolean buttonLightOnKeypressOnly = mButtonManager.getButtonLightOnKeypress();
