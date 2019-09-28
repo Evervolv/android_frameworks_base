@@ -186,6 +186,9 @@ public class QSFooterView extends FrameLayout {
     }
 
     private void updateVisibilities() {
+        if (!Build.IS_ENG) {
+            mBuildText.setVisibility(View.INVISIBLE);
+        }
         mBuildText.setVisibility(mExpanded && mShouldShowBuildText ? View.VISIBLE : View.INVISIBLE);
     }
 }
