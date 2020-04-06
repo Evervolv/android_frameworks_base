@@ -17,6 +17,9 @@
     <!-- Color of the UDFPS pressed view -->
     <color name="config_udfpsColor">#ffffffff</color>
 
+    <!-- Whether usage of the proximity sensor during doze is supported -->
+    <bool name="doze_proximity_sensor_supported">true</bool>
+
     <!-- Whether to enable framework dimming for UDFPS -->
     <bool name="config_udfpsFrameworkDimming">false</bool>
 
