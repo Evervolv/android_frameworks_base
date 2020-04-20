@@ -74,6 +74,7 @@ android_library {
         "//frameworks/libs/systemui:view_capture",
         "am_flags_lib",
         "com.evervolv.platform.internal",
+        "vendor.lineage.powershare-V1-java",
     ],
     resource_dirs: [
         "res",
