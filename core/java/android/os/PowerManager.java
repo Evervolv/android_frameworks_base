@@ -885,6 +885,27 @@ public final class PowerManager {
     public static final String REBOOT_QUIESCENT = "quiescent";
 
     /**
+     * The value to pass as the 'reason' argument to reboot() to
+     * reboot into bootloader mode
+     * @hide
+     */
+    public static final String REBOOT_BOOTLOADER = "bootloader";
+
+    /**
+     * The value to pass as the 'reason' argument to reboot() to
+     * reboot into download mode
+     * @hide
+     */
+    public static final String REBOOT_DOWNLOAD = "download";
+
+    /**
+     * The value to pass as the 'reason' argument to reboot() to
+     * reboot into fastboot mode
+     * @hide
+     */
+    public static final String REBOOT_FASTBOOT = "fastboot";
+
+    /**
      * The value to pass as the 'reason' argument to android_reboot().
      * @hide
      */
@@ -1888,6 +1909,37 @@ public final class PowerManager {
         }
         try {
             mService.reboot(false, reason, true);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /**
+     * Reboot the device.  Will not return if the reboot is successful.
+     * <p>
+     * Requires the {@link android.Manifest.permission#REBOOT} permission.
+     * </p>
+     * <p>
+     * If the {@code reason} string contains ",quiescent", then the screen stays off during reboot
+     * and is not turned on again until the user triggers the device to wake up (for example,
+     * by pressing the power key).
+     * This behavior applies to Android TV devices launched on Android 11 (API level 30) or higher.
+     * </p>
+     *
+     * @param reason code to pass to the kernel (e.g., "recovery") to
+     *               request special boot modes, or null.
+     * @throws UnsupportedOperationException if userspace reboot was requested on a device that
+     *                                       doesn't support it.
+     * @hide
+     */
+    @RequiresPermission(permission.REBOOT)
+    public void rebootCustom(@Nullable String reason) {
+        if (REBOOT_USERSPACE.equals(reason) && !isRebootingUserspaceSupported()) {
+            throw new UnsupportedOperationException(
+                    "Attempted userspace reboot on a device that doesn't support it");
+        }
+        try {
+            mService.rebootCustom(false, reason, true);
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }

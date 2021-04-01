@@ -55,7 +55,7 @@ public class ShutdownUi {
      * @param isReboot Whether the device will be rebooting after this shutdown.
      * @param reason Cause for the shutdown.
      */
-    public void showShutdownUi(boolean isReboot, String reason) {
+    public void showShutdownUi(boolean isReboot, String reason, boolean custom) {
         ScrimDrawable background = new ScrimDrawable();
 
         final Dialog d = new Dialog(mContext,
@@ -119,8 +119,8 @@ public class ShutdownUi {
         reasonView.setTextColor(color);
         messageView.setTextColor(color);
 
-        messageView.setText(getRebootMessage(isReboot, reason));
-        String rebootReasonMessage = getReasonMessage(reason);
+        messageView.setText(getRebootMessage(isReboot, reason, custom));
+        String rebootReasonMessage = getReasonMessage(reason, custom);
         if (rebootReasonMessage != null) {
             reasonView.setVisibility(View.VISIBLE);
             reasonView.setText(rebootReasonMessage);
@@ -139,11 +139,19 @@ public class ShutdownUi {
     }
 
     @StringRes
-    @VisibleForTesting int getRebootMessage(boolean isReboot, @Nullable String reason) {
+    @VisibleForTesting int getRebootMessage(boolean isReboot, @Nullable String reason, boolean custom) {
         if (reason != null && reason.startsWith(PowerManager.REBOOT_RECOVERY_UPDATE)) {
             return R.string.reboot_to_update_reboot;
-        } else if (reason != null && reason.equals(PowerManager.REBOOT_RECOVERY)) {
+        } else if (reason != null && reason.equals(PowerManager.REBOOT_RECOVERY) && !custom) {
             return R.string.reboot_to_reset_message;
+        } else if (reason != null && reason.equals(PowerManager.REBOOT_RECOVERY)) {
+            return R.string.global_action_restart_recovery_progress;
+        } else if (reason != null && reason.equals(PowerManager.REBOOT_BOOTLOADER)) {
+            return R.string.global_action_restart_bootloader_progress;
+        } else if (reason != null && reason.equals(PowerManager.REBOOT_DOWNLOAD)) {
+            return R.string.global_action_restart_download_progress;
+        } else if (reason != null && reason.equals(PowerManager.REBOOT_FASTBOOT)) {
+            return R.string.global_action_restart_fastboot_progress;
         } else if (isReboot) {
             return R.string.reboot_to_reset_message;
         } else {
@@ -152,10 +160,10 @@ public class ShutdownUi {
     }
 
     @Nullable
-    @VisibleForTesting String getReasonMessage(@Nullable String reason) {
+    @VisibleForTesting String getReasonMessage(@Nullable String reason, boolean custom) {
         if (reason != null && reason.startsWith(PowerManager.REBOOT_RECOVERY_UPDATE)) {
             return mContext.getString(R.string.reboot_to_update_title);
-        } else if (reason != null && reason.equals(PowerManager.REBOOT_RECOVERY)) {
+        } else if (reason != null && reason.equals(PowerManager.REBOOT_RECOVERY) && !custom) {
             return mContext.getString(R.string.reboot_to_reset_title);
         } else {
             return null;
