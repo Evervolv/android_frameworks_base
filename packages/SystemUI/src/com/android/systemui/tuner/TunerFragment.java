@@ -45,6 +45,9 @@ public class TunerFragment extends PreferenceFragment {
             "nav_bar",
             "lockscreen",
             "picture_in_picture",
+            "volume_and_do_not_disturb",
+            "doze",
+            KEY_PLUGINS,
     };
 
     // We are the only ones who ever call this constructor, so don't worry about the warning
