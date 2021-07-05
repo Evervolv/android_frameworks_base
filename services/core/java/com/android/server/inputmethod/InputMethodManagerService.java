@@ -53,6 +53,7 @@ import static com.android.server.inputmethod.ImeVisibilityStateComputer.STATE_HI
 import static com.android.server.inputmethod.InputMethodBindingController.TIME_TO_RECONNECT;
 import static com.android.server.inputmethod.InputMethodUtils.isSoftInputModeStateVisibleAllowed;
 
+import static evervolv.hardware.HardwareManager.FEATURE_HIGH_TOUCH_POLLING_RATE;
 import static evervolv.hardware.HardwareManager.FEATURE_HIGH_TOUCH_SENSITIVITY;
 import static evervolv.hardware.HardwareManager.FEATURE_TOUCH_HOVERING;
 
@@ -1151,6 +1152,11 @@ public final class InputMethodManagerService extends IInputMethodManager.Stub
                     Settings.Secure.ACCESSIBILITY_SOFT_KEYBOARD_MODE), false, this, userId);
             resolver.registerContentObserver(Settings.Secure.getUriFor(
                     STYLUS_HANDWRITING_ENABLED), false, this);
+            if (mHardwareManager.isSupported(FEATURE_HIGH_TOUCH_POLLING_RATE)) {
+                resolver.registerContentObserver(EVSettings.System.getUriFor(
+                        EVSettings.System.HIGH_TOUCH_POLLING_RATE_ENABLE),
+                        false, this, userId);
+            }
             if (mHardwareManager.isSupported(FEATURE_HIGH_TOUCH_SENSITIVITY)) {
                 resolver.registerContentObserver(EVSettings.System.getUriFor(
                         EVSettings.System.HIGH_TOUCH_SENSITIVITY_ENABLE),
@@ -1170,6 +1176,8 @@ public final class InputMethodManagerService extends IInputMethodManager.Stub
                     Settings.Secure.ACCESSIBILITY_SOFT_KEYBOARD_MODE);
             final Uri stylusHandwritingEnabledUri = Settings.Secure.getUriFor(
                     STYLUS_HANDWRITING_ENABLED);
+            final Uri highTouchPollingRateUri = EVSettings.System.getUriFor(
+                    EVSettings.System.HIGH_TOUCH_POLLING_RATE_ENABLE);
             final Uri touchSensitivityUri = EVSettings.System.getUriFor(
                     EVSettings.System.HIGH_TOUCH_SENSITIVITY_ENABLE);
             final Uri touchHoveringUri = EVSettings.Secure.getUriFor(
@@ -1193,6 +1201,8 @@ public final class InputMethodManagerService extends IInputMethodManager.Stub
                     }
                 } else if (stylusHandwritingEnabledUri.equals(uri)) {
                     InputMethodManager.invalidateLocalStylusHandwritingAvailabilityCaches();
+                } else if (highTouchPollingRateUri.equals(uri)) {
+                    updateTouchPollingRate();
                 } else if (touchSensitivityUri.equals(uri)) {
                     updateTouchSensitivity();
                 } else if (touchHoveringUri.equals(uri)) {
@@ -1871,6 +1881,7 @@ public final class InputMethodManagerService extends IInputMethodManager.Stub
         }
 
         updateTouchHovering();
+        updateTouchPollingRate();
         updateTouchSensitivity();
 
         if (DEBUG) {
@@ -1908,6 +1919,7 @@ public final class InputMethodManagerService extends IInputMethodManager.Stub
                 mHardwareManager = HardwareManager.getInstance(mContext);
 
                 updateTouchHovering();
+                updateTouchPollingRate();
                 updateTouchSensitivity();
 
                 mStatusBarManagerInternal =
@@ -3248,6 +3260,15 @@ public final class InputMethodManagerService extends IInputMethodManager.Stub
         mHardwareKeyboardShortcutController.reset(mSettings);
 
         sendOnNavButtonFlagsChangedLocked();
+    }
+
+    private void updateTouchPollingRate() {
+        if (!mHardwareManager.isSupported(FEATURE_HIGH_TOUCH_POLLING_RATE)) {
+            return;
+        }
+        final boolean enabled = EVSettings.System.getInt(mContext.getContentResolver(),
+                EVSettings.System.HIGH_TOUCH_POLLING_RATE_ENABLE, 0) == 1;
+        mHardwareManager.setFeature(FEATURE_HIGH_TOUCH_POLLING_RATE, enabled);
     }
 
     private void updateTouchSensitivity() {
