@@ -63,6 +63,7 @@ static const bool kIsDebug = false;
 static const char* kAssetsRoot = "assets";
 static const char* kAppZipName = NULL; //"classes.jar";
 static const char* kSystemAssets = "framework/framework-res.apk";
+static const char* kPlatformAssets = "framework/com.evervolv.platform-res.apk";
 static const char* kResourceCache = "resource-cache";
 
 static const char* kExcludeExtension = ".EXCLUDE";
@@ -369,6 +370,7 @@ bool AssetManager::addDefaultAssets()
 
     String8 path(root);
     appendPath(path, kSystemAssets);
+    appendPath(path, kPlatformAssets);
 
     return addAssetPath(path, NULL, false /* appAsLib */, true /* isSystemAsset */);
 }
