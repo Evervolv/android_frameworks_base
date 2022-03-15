@@ -36,6 +36,7 @@ import android.annotation.Nullable;
 import android.app.AppOpsManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.content.res.TypedArray;
 import android.hardware.biometrics.AuthenticationStateListener;
 import android.hardware.biometrics.BiometricAuthenticator;
 import android.hardware.biometrics.BiometricManager;
@@ -857,6 +858,33 @@ public class AuthService extends SystemService {
         final boolean isPowerbuttonFps = getContext().getResources().getBoolean(
                 R.bool.config_is_powerbutton_fps);
 
+        final List<SensorLocationInternal> powerbuttonFpsLocations = new ArrayList<>();
+        if (isPowerbuttonFps) {
+            final TypedArray sfpsPropArray = getContext().getResources().obtainTypedArray(
+                    com.android.internal.R.array.config_sfps_sensor_props);
+            for (int i = 0; i < sfpsPropArray.length(); i++) {
+                final int id = sfpsPropArray.getResourceId(i, -1);
+                if (id > 0) {
+                    final TypedArray sfpsProps = getContext().getResources().obtainTypedArray(id);
+                    if (sfpsProps != null) {
+                        try {
+                            final SensorLocationInternal location = new SensorLocationInternal(
+                                    sfpsProps.getString(0),
+                                    sfpsProps.getInt(1, 0),
+                                    sfpsProps.getInt(2, 0),
+                                    sfpsProps.getInt(3, 0));
+                            if (location != null) {
+                                powerbuttonFpsLocations.add(location);
+                            }
+                        } catch (Exception e) {
+                            Slog.w(TAG, "malformed sensor location", e);
+                        }
+                    }
+                }
+            }
+            sfpsPropArray.recycle();
+        }
+
         final @FingerprintSensorProperties.SensorType int sensorType;
         if (isUdfps) {
             sensorType = FingerprintSensorProperties.TYPE_UDFPS_OPTICAL;
@@ -880,6 +908,12 @@ public class AuthService extends SystemService {
                     resetLockoutRequiresHardwareAuthToken,
                     List.of(new SensorLocationInternal("" /* display */, udfpsProps[0],
                             udfpsProps[1], udfpsProps[2])));
+        } else if (isPowerbuttonFps && !powerbuttonFpsLocations.isEmpty()) {
+            return new FingerprintSensorPropertiesInternal(sensorId,
+                    Utils.authenticatorStrengthToPropertyStrength(strength), maxEnrollmentsPerUser,
+                    componentInfo, sensorType, false /* halControlsIllumination */,
+                    resetLockoutRequiresHardwareAuthToken,
+                    powerbuttonFpsLocations);
         } else {
             return new FingerprintSensorPropertiesInternal(sensorId,
                     Utils.authenticatorStrengthToPropertyStrength(strength), maxEnrollmentsPerUser,
