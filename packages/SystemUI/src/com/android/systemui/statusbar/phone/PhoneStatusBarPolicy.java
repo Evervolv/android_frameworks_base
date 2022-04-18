@@ -389,6 +389,9 @@ public class PhoneStatusBarPolicy
                 this::onConnectedDisplayAvailabilityChanged);
 
         mCommandQueue.addCallback(this);
+
+        // Get initial user setup state
+        onUserSetupChanged();
     }
 
     private String getManagedProfileAccessibilityString() {
