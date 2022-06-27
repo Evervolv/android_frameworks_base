@@ -546,6 +546,7 @@ public class DozeSensors {
         private final boolean mSettingDefault;
         private final boolean mRequiresTouchscreen;
         private final boolean mRequiresProx;
+        private final boolean mPerformsProxCheck;
 
         // Whether the sensor should only register if the device is in AOD
         private final boolean mRequiresAod;
@@ -571,6 +572,26 @@ public class DozeSensors {
             this(
                     sensor,
                     setting,
+                    configured,
+                    pulseReason,
+                    reportsTouchCoordinates,
+                    requiresTouchscreen,
+                    true
+            );
+        }
+
+        TriggerSensor(
+                Sensor sensor,
+                String setting,
+                boolean configured,
+                int pulseReason,
+                boolean reportsTouchCoordinates,
+                boolean requiresTouchscreen,
+                boolean performsProxCheck
+        ) {
+            this(
+                    sensor,
+                    setting,
                     true /* settingDef */,
                     configured,
                     pulseReason,
@@ -578,6 +599,7 @@ public class DozeSensors {
                     requiresTouchscreen,
                     false /* ignoresSetting */,
                     false /* requiresProx */,
+                    performsProxCheck,
                     true /* immediatelyReRegister */,
                     false
             );
@@ -597,6 +619,36 @@ public class DozeSensors {
                 boolean requiresAod
         ) {
             this(
+                    sensor,
+                    setting,
+                    settingDef,
+                    configured,
+                    pulseReason,
+                    reportsTouchCoordinates,
+                    requiresTouchscreen,
+                    ignoresSetting,
+                    requiresProx,
+                    true,
+                    immediatelyReRegister,
+                    requiresAod
+            );
+        }
+
+        TriggerSensor(
+                Sensor sensor,
+                String setting,
+                boolean settingDef,
+                boolean configured,
+                int pulseReason,
+                boolean reportsTouchCoordinates,
+                boolean requiresTouchscreen,
+                boolean ignoresSetting,
+                boolean requiresProx,
+                boolean performsProxCheck,
+                boolean immediatelyReRegister,
+                boolean requiresAod
+        ) {
+            this(
                     new Sensor[]{ sensor },
                     setting,
                     settingDef,
@@ -606,6 +658,7 @@ public class DozeSensors {
                     requiresTouchscreen,
                     ignoresSetting,
                     requiresProx,
+                    performsProxCheck,
                     immediatelyReRegister,
                     DevicePostureController.DEVICE_POSTURE_UNKNOWN,
                     requiresAod
@@ -626,6 +679,38 @@ public class DozeSensors {
                 @DevicePostureController.DevicePostureInt int posture,
                 boolean requiresAod
         ) {
+            this(
+                    sensors,
+                    setting,
+                    settingDef,
+                    configured,
+                    pulseReason,
+                    reportsTouchCoordinates,
+                    requiresTouchscreen,
+                    ignoresSetting,
+                    requiresProx,
+                    true,
+                    immediatelyReRegister,
+                    posture,
+                    requiresAod
+            );
+        }
+
+        TriggerSensor(
+                @NonNull Sensor[] sensors,
+                String setting,
+                boolean settingDef,
+                boolean configured,
+                int pulseReason,
+                boolean reportsTouchCoordinates,
+                boolean requiresTouchscreen,
+                boolean ignoresSetting,
+                boolean requiresProx,
+                boolean performsProxCheck,
+                boolean immediatelyReRegister,
+                @DevicePostureController.DevicePostureInt int posture,
+                boolean requiresAod
+        ) {
             mSensors = sensors;
             mSetting = setting;
             mSettingDefault = settingDef;
@@ -635,6 +720,7 @@ public class DozeSensors {
             mRequiresTouchscreen = requiresTouchscreen;
             mIgnoresSetting = ignoresSetting;
             mRequiresProx = requiresProx;
+            mPerformsProxCheck = performsProxCheck;
             mRequiresAod = requiresAod;
             mPosture = posture;
             mImmediatelyReRegister = immediatelyReRegister;
@@ -762,11 +848,21 @@ public class DozeSensors {
                     screenX = event.values[0];
                     screenY = event.values[1];
                 }
-                mSensorCallback.onSensorPulse(mPulseReason, screenX, screenY, event.values);
+                mSensorCallback.onSensorPulse(mPulseReason, mPerformsProxCheck,
+                        screenX, screenY, event.values);
                 if (!mRegistered && mImmediatelyReRegister) {
                     updateListening();
                 }
             }));
+        }
+
+        /**
+         * If the sensor itself performs proximity checks, to avoid pocket dialing.
+         * Gated sensors don't need to be stopped when the {@link DozeMachine} is
+         * {@link DozeMachine.State#DOZE_AOD_PAUSED}.
+         */
+        public boolean performsProxCheck() {
+            return mPerformsProxCheck;
         }
 
         public void registerSettingsObserver(ContentObserver settingsObserver) {
@@ -867,7 +963,8 @@ public class DozeSensors {
                     mDozeLog.traceSensorEventDropped(mPulseReason, "debounce");
                     return;
                 }
-                mSensorCallback.onSensorPulse(mPulseReason, -1, -1, event.getValues());
+                mSensorCallback.onSensorPulse(mPulseReason, true /* sensorPerformsProxCheck */,
+                        -1, -1, event.getValues());
             }));
         }
     }
@@ -916,11 +1013,13 @@ public class DozeSensors {
         /**
          * Called when a sensor requests a pulse
          * @param pulseReason Requesting sensor, e.g. {@link DozeLog#REASON_SENSOR_PICKUP}
+         * @param sensorPerformedProxCheck true if the sensor already checked for FAR proximity.
          * @param screenX the location on the screen where the sensor fired or -1
          *                if the sensor doesn't support reporting screen locations.
          * @param screenY the location on the screen where the sensor fired or -1
          * @param rawValues raw values array from the event.
          */
-        void onSensorPulse(int pulseReason, float screenX, float screenY, float[] rawValues);
+        void onSensorPulse(int pulseReason, boolean sensorPerformedProxCheck,
+                float screenX, float screenY, float[] rawValues);
     }
 }
