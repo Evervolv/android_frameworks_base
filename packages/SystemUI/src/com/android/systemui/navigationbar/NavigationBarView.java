@@ -612,7 +612,7 @@ public class NavigationBarView extends FrameLayout {
         // Update IME button visibility, a11y and rotate button always overrides the appearance
         boolean disableImeSwitcher =
                 (mNavigationIconHints & StatusBarManager.NAVIGATION_HINT_IME_SWITCHER_SHOWN) == 0
-                || isImeRenderingNavButtons();
+                || isImeRenderingNavButtons() || !QuickStepContract.isSwipeUpMode(mNavBarMode);
         mContextualButtonGroup.setButtonVisibility(R.id.ime_switcher, !disableImeSwitcher);
 
         mBarTransitions.reapplyDarkIntensity();
