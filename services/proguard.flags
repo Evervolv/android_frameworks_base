@@ -135,3 +135,6 @@
 # SDK
 -keep,allowoptimization,allowaccessmodification class evervolv.** { *; }
 -keep,allowoptimization,allowaccessmodification class com.evervolv.** { *; }
+
+# Charging HAL
+-keep,allowoptimization,allowaccessmodification class vendor.lineage.** { *; }
