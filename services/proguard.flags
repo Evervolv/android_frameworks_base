@@ -137,3 +137,4 @@
 # SDK
 -keep,allowoptimization,allowaccessmodification class evervolv.** { *; }
 -keep,allowoptimization,allowaccessmodification class com.evervolv.** { *; }
+-keep,allowoptimization,allowaccessmodification class vendor.lineage.** { *; }
