@@ -250,7 +250,7 @@ public class DozeSensors {
                         false /* ignoresSetting */,
                         dozeParameters.longPressUsesProx(),
                         screenOffUnlockUdfps() /* immediatelyReRegister */,
-                        !screenOffUnlockUdfps() /* requiresAod */
+                        !mScreenOffUdfpsEnabled /* requiresAod */
                 ),
                 new PluginSensor(
                         new SensorManagerPlugin.Sensor(TYPE_WAKE_DISPLAY),
