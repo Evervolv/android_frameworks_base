@@ -29,6 +29,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
+import com.evervolv.platform.internal.R.bool.config_fingerprintWakeAndUnlock
 
 class FingerprintInteractiveToAuthProviderImpl @Inject constructor(
     @Background private val backgroundDispatcher: CoroutineDispatcher,
@@ -36,6 +37,11 @@ class FingerprintInteractiveToAuthProviderImpl @Inject constructor(
     private val secureSettings: SecureSettings,
     private val selectedUserInteractor: SelectedUserInteractor,
 ) : FingerprintInteractiveToAuthProvider {
+    private val defaultValue = if (context.resources.getBoolean(config_fingerprintWakeAndUnlock)) {
+        1
+    } else {
+        0
+    }
 
     override val enabledForCurrentUser =
         selectedUserInteractor.selectedUser.flatMapLatest { currentUserId ->
@@ -64,11 +70,11 @@ class FingerprintInteractiveToAuthProviderImpl @Inject constructor(
             userId,
         )
         if (value == -1) {
-            value = 0
+            value = defaultValue
             Settings.Secure.putIntForUser(
                 context.contentResolver,
                 Settings.Secure.SFPS_PERFORMANT_AUTH_ENABLED,
-                0,
+                value,
                 userId,
             )
         }
