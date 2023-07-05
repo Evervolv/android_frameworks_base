@@ -18,6 +18,7 @@ package com.android.keyguard;
 
 import android.annotation.CallSuper;
 import android.content.Context;
+import android.provider.Settings;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.util.AttributeSet;
@@ -213,7 +214,9 @@ public abstract class BasePasswordTextView extends FrameLayout {
 
     /** Controls whether the last entered digit is briefly shown after being entered */
     public void setShowPassword(boolean enabled) {
-        mShowPassword = enabled;
+        mShowPassword = enabled &&
+                Settings.System.getInt(mContext.getContentResolver(),
+                Settings.System.TEXT_SHOW_PASSWORD, 1) == 1;
     }
 
     @Override
