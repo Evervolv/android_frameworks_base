@@ -341,6 +341,7 @@ public class InternetDialogDelegate implements
         }
         mLifecycleRegistry.setCurrentState(Lifecycle.State.DESTROYED);
         mMobileNetworkLayout.setOnClickListener(null);
+        mMobileNetworkLayout.setOnLongClickListener(null);
         mConnectedWifListLayout.setOnClickListener(null);
         if (mSecondaryMobileNetworkLayout != null) {
             mSecondaryMobileNetworkLayout.setOnClickListener(null);
@@ -437,6 +438,13 @@ public class InternetDialogDelegate implements
                 showTurnOffAutoDataSwitchDialog(dialog, autoSwitchNonDdsSubId);
             }
             mInternetDialogController.connectCarrierNetwork();
+        });
+        mMobileNetworkLayout.setOnLongClickListener(v -> {
+            if (!mInternetDialogController.isDeviceLocked()) {
+                mInternetDialogController.launchMobileNetworkSettings(v, mDefaultDataSubId);
+                return true;
+            }
+            return false;
         });
         mMobileDataToggle.setOnClickListener(v -> {
             boolean isChecked = mMobileDataToggle.isChecked();
