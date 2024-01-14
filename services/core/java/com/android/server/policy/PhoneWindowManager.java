@@ -142,6 +142,7 @@ import android.content.res.Resources;
 import android.database.ContentObserver;
 import android.graphics.Rect;
 import android.hardware.SensorPrivacyManager;
+import android.hardware.camera2.CameraManager;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.DisplayManagerInternal;
 import android.hardware.hdmi.HdmiAudioSystemClient;
@@ -270,6 +271,7 @@ import java.io.PrintWriter;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -819,6 +821,34 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     private ScreenshotGestureListener mScreenshotGesture;
 
     private HardwareManager mHardwareManager;
+
+    private CameraManager mCameraManager;
+    private CameraAvailbilityListener mCameraAvailabilityListener;
+
+    private class CameraAvailbilityListener extends CameraManager.AvailabilityCallback {
+        private final Set<String> mCameraInUse = Collections.synchronizedSet(new HashSet<>());
+
+        @Override
+        public void onCameraAvailable(String cameraId) {
+            mCameraInUse.remove(cameraId);
+        }
+
+        @Override
+        public void onCameraUnavailable(String cameraId) {
+            try {
+                // check if the camera id is still valid
+                mCameraManager.getCameraCharacteristics(cameraId);
+            } catch (Exception e) {
+                // camera id is no longer valid, ignore
+                return;
+            }
+            mCameraInUse.add(cameraId);
+        }
+
+        public boolean isAnyCameraInUse() {
+            return !mCameraInUse.isEmpty();
+        }
+    }
 
     private class PolicyHandler extends Handler {
 
@@ -2444,6 +2474,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         });
         mWakeGestureListener = new MyWakeGestureListener(mContext, mHandler);
         mSettingsObserver = new SettingsObserver(mHandler);
+        mCameraManager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
+        mCameraAvailabilityListener = new CameraAvailbilityListener();
+        mCameraManager.registerAvailabilityCallback(mCameraAvailabilityListener, mHandler);
         mModifierShortcutManager = new ModifierShortcutManager(
                 mContext, mHandler, UserHandle.of(mCurrentUserId));
         mUiMode = mContext.getResources().getInteger(
@@ -5650,7 +5683,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                 } else {
                     mHandler.removeMessages(MSG_CAMERA_LONG_PRESS);
                     // Consume key up events of long presses only.
-                    if (mCameraTriggered && mCameraLaunch) {
+                    if (mCameraTriggered && mCameraLaunch
+                            && !mCameraAvailabilityListener.isAnyCameraInUse()) {
                         Intent intent;
                         final boolean keyguardActive = mKeyguardDelegate == null ?
                                 false : mKeyguardDelegate.isShowing();
