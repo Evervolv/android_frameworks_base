@@ -49,4 +49,9 @@
   <java-symbol type="string" name="config_stockFingerprint" />
   <java-symbol type="string" name="config_netflixSpoofModel" />
 
+  <java-symbol type="array" name="config_pixelFeaturePackages" />
+  <java-symbol type="array" name="config_pixelInformationTensor" />
+  <java-symbol type="array" name="config_pixelInformationQcom" />
+  <java-symbol type="array" name="config_pixelInformationLegacy" />
+
 </resources>

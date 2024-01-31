@@ -50,4 +50,19 @@
 
     <!-- Device model (Build.MODEL) to spoof for netflix, if not empty -->
     <string name="config_netflixSpoofModel" translatable="false"></string>
+
+    <!-- Package list to manage feature handling. Packages are defined
+         using a packageName|Feature structure. -->
+    <string-array name="config_pixelFeaturePackages" translatable="false">
+    </string-array>
+
+    <!-- Configuration that imitates properties from the device of choice.
+         Please refer to config_certifiedBuildProperties for configuring. -->
+    <string-array name="config_pixelInformationTensor" translatable="false">
+    </string-array>
+    <string-array name="config_pixelInformationQcom" translatable="false">
+    </string-array>
+    <string-array name="config_pixelInformationLegacy" translatable="false">
+    </string-array>
+
 </resources>
