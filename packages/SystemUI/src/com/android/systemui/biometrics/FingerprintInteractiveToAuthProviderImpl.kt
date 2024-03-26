@@ -67,7 +67,7 @@ constructor(
             }
             .flowOn(backgroundDispatcher)
 
-    private fun isEnabled(userId: Int): Boolean {
+    override fun isEnabled(userId: Int): Boolean {
         var value =
             Settings.Secure.getIntForUser(
                 context.contentResolver,
