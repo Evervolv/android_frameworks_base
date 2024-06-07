@@ -1868,6 +1868,7 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
             messageView.setSelected(true); // necessary for marquee to work
 
             icon.setImageDrawable(action.getIcon(mContext));
+            icon.setColorFilter(Color.TRANSPARENT); // Remove tint
             icon.setScaleType(ScaleType.CENTER_CROP);
 
             if (action.getMessage() != null) {
