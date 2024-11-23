@@ -71,7 +71,11 @@ public class AconfigFlags {
                 (Process.myUid() == Process.SYSTEM_UID) ? DeviceProtos.parsedFlagsProtoPaths()
                         : Arrays.asList(DeviceProtos.PATHS);
         for (String fileName : defaultFlagProtoFiles) {
-            try (var inputStream = new FileInputStream(fileName)) {
+            final File protoFile = new File(fileName);
+            if (!protoFile.isFile() || !protoFile.canRead()) {
+                continue;
+            }
+            try (var inputStream = new FileInputStream(protoFile)) {
                 loadAconfigDefaultValues(inputStream.readAllBytes());
             } catch (IOException e) {
                 Slog.e(LOG_TAG, "Failed to read Aconfig values from " + fileName, e);
@@ -106,6 +110,9 @@ public class AconfigFlags {
 
         final var settingsFile = new File(Environment.getUserSystemDirectory(0),
                 "settings_config.xml");
+        if (!settingsFile.isFile() || !settingsFile.canRead()) {
+            return;
+        }
         try (var inputStream = new FileInputStream(settingsFile)) {
             TypedXmlPullParser parser = Xml.resolvePullParser(inputStream);
             if (parser.next() != XmlPullParser.END_TAG && "settings".equals(parser.getName())) {
@@ -172,7 +179,7 @@ public class AconfigFlags {
                 }
             }
         } catch (IOException | XmlPullParserException e) {
-            Slog.e(LOG_TAG, "Failed to read Aconfig values from settings_config.xml", e);
+            Slog.w(LOG_TAG, "Failed to read Aconfig values from settings_config.xml", e);
         }
     }
 
