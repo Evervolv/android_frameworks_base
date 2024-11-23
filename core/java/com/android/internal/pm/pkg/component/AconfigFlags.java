@@ -72,10 +72,15 @@ public class AconfigFlags {
                 (Process.myUid() == Process.SYSTEM_UID) ? DeviceProtos.parsedFlagsProtoPaths()
                         : Arrays.asList(DeviceProtos.PATHS);
         for (String fileName : defaultFlagProtoFiles) {
-            try (var inputStream = new FileInputStream(fileName)) {
-                loadAconfigDefaultValues(inputStream.readAllBytes());
-            } catch (IOException e) {
-                Slog.e(LOG_TAG, "Failed to read Aconfig values from " + fileName, e);
+            File f = new File(fileName);
+            if (f.isFile() && f.canRead()) {
+                try (var inputStream = new FileInputStream(fileName)) {
+                    loadAconfigDefaultValues(inputStream.readAllBytes());
+                } catch (IOException e) {
+                    Slog.e(LOG_TAG, "Failed to read Aconfig values from " + fileName, e);
+                }
+            } else {
+                Slog.d(LOG_TAG, "No Aconfig flags at " + fileName);
             }
         }
         if (Process.myUid() == Process.SYSTEM_UID) {
@@ -107,68 +112,73 @@ public class AconfigFlags {
 
         final var settingsFile = new File(Environment.getUserSystemDirectory(0),
                 "settings_config.xml");
-        try (var inputStream = new FileInputStream(settingsFile)) {
-            TypedXmlPullParser parser = Xml.resolvePullParser(inputStream);
-            if (parser.next() != XmlPullParser.END_TAG && "settings".equals(parser.getName())) {
-                final var flagPriority = new ArrayMap<String, Integer>();
-                final int outerDepth = parser.getDepth();
-                int type;
-                while ((type = parser.next()) != XmlPullParser.END_DOCUMENT
-                        && (type != XmlPullParser.END_TAG || parser.getDepth() > outerDepth)) {
-                    if (type == XmlPullParser.END_TAG || type == XmlPullParser.TEXT) {
-                        continue;
+        if (settingsFile.isFile() && settingsFile.canRead()) {
+            try (var inputStream = new FileInputStream(settingsFile)) {
+                TypedXmlPullParser parser = Xml.resolvePullParser(inputStream);
+                if (parser.next() != XmlPullParser.END_TAG && "settings".equals(parser.getName())) {
+                    final var flagPriority = new ArrayMap<String, Integer>();
+                    final int outerDepth = parser.getDepth();
+                    int type;
+                    while ((type = parser.next()) != XmlPullParser.END_DOCUMENT
+                            && (type != XmlPullParser.END_TAG || parser.getDepth() > outerDepth)) {
+                        if (type == XmlPullParser.END_TAG || type == XmlPullParser.TEXT) {
+                            continue;
+                        }
+                        if (!"setting".equals(parser.getName())) {
+                            continue;
+                        }
+                        String name = parser.getAttributeValue(null, "name");
+                        final String value = parser.getAttributeValue(null, "value");
+                        if (name == null || value == null) {
+                            continue;
+                        }
+                        // A non-boolean setting is definitely not an Aconfig flag value.
+                        if (!"false".equalsIgnoreCase(value) && !"true".equalsIgnoreCase(value)) {
+                            continue;
+                        }
+                        final var overridePrefix = "device_config_overrides/";
+                        final var stagedPrefix = "staged/";
+                        String separator = "/";
+                        String prefix = "default";
+                        int priority = 0;
+                        if (name.startsWith(overridePrefix)) {
+                            prefix = overridePrefix;
+                            name = name.substring(overridePrefix.length());
+                            separator = ":";
+                            priority = 20;
+                        } else if (name.startsWith(stagedPrefix)) {
+                            prefix = stagedPrefix;
+                            name = name.substring(stagedPrefix.length());
+                            separator = "*";
+                            priority = 10;
+                        }
+                        final String flagPackageAndName = parseFlagPackageAndName(name, separator);
+                        if (flagPackageAndName == null) {
+                            continue;
+                        }
+                        // We ignore all settings that aren't for flags. We'll know they are
+                        // for flags if they correspond to flags read from the proto files.
+                        if (!mFlagValues.containsKey(flagPackageAndName)) {
+                            continue;
+                        }
+                        Slog.d(LOG_TAG, "Found " + prefix
+                                + " Aconfig flag value for " + flagPackageAndName + " = " + value);
+                        final Integer currentPriority = flagPriority.get(flagPackageAndName);
+                        if (currentPriority != null && currentPriority >= priority) {
+                            Slog.i(LOG_TAG, "Skipping " + prefix + " flag " + flagPackageAndName
+                                    + " because of the existing one with priority "
+                                    + currentPriority);
+                            continue;
+                        }
+                        flagPriority.put(flagPackageAndName, priority);
+                        mFlagValues.put(flagPackageAndName, Boolean.parseBoolean(value));
                     }
-                    if (!"setting".equals(parser.getName())) {
-                        continue;
-                    }
-                    String name = parser.getAttributeValue(null, "name");
-                    final String value = parser.getAttributeValue(null, "value");
-                    if (name == null || value == null) {
-                        continue;
-                    }
-                    // A non-boolean setting is definitely not an Aconfig flag value.
-                    if (!"false".equalsIgnoreCase(value) && !"true".equalsIgnoreCase(value)) {
-                        continue;
-                    }
-                    final var overridePrefix = "device_config_overrides/";
-                    final var stagedPrefix = "staged/";
-                    String separator = "/";
-                    String prefix = "default";
-                    int priority = 0;
-                    if (name.startsWith(overridePrefix)) {
-                        prefix = overridePrefix;
-                        name = name.substring(overridePrefix.length());
-                        separator = ":";
-                        priority = 20;
-                    } else if (name.startsWith(stagedPrefix)) {
-                        prefix = stagedPrefix;
-                        name = name.substring(stagedPrefix.length());
-                        separator = "*";
-                        priority = 10;
-                    }
-                    final String flagPackageAndName = parseFlagPackageAndName(name, separator);
-                    if (flagPackageAndName == null) {
-                        continue;
-                    }
-                    // We ignore all settings that aren't for flags. We'll know they are for flags
-                    // if they correspond to flags read from the proto files.
-                    if (!mFlagValues.containsKey(flagPackageAndName)) {
-                        continue;
-                    }
-                    Slog.d(LOG_TAG, "Found " + prefix
-                            + " Aconfig flag value for " + flagPackageAndName + " = " + value);
-                    final Integer currentPriority = flagPriority.get(flagPackageAndName);
-                    if (currentPriority != null && currentPriority >= priority) {
-                        Slog.i(LOG_TAG, "Skipping " + prefix + " flag " + flagPackageAndName
-                                + " because of the existing one with priority " + currentPriority);
-                        continue;
-                    }
-                    flagPriority.put(flagPackageAndName, priority);
-                    mFlagValues.put(flagPackageAndName, Boolean.parseBoolean(value));
                 }
+            } catch (IOException | XmlPullParserException e) {
+                Slog.e(LOG_TAG, "Failed to read Aconfig values from settings_config.xml", e);
             }
-        } catch (IOException | XmlPullParserException e) {
-            Slog.e(LOG_TAG, "Failed to read Aconfig values from settings_config.xml", e);
+        } else {
+            Slog.d(LOG_TAG, "No Aconfig flags at settings_config.xml");
         }
     }
 
