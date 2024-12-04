@@ -328,6 +328,7 @@ constructor(
         DeviceEntryUdfpsRefactor.isUnexpectedlyInLegacyMode()
         overlayParams = updatedOverlayParams
         sensorBounds = updatedOverlayParams.sensorBounds
+        overlayTouchView?.sensorRect = updatedOverlayParams.sensorBounds
         getTouchOverlay()?.let {
             if (addViewRunnable == null) {
                 // Only updateViewLayout if there's no pending view to add to WM.
