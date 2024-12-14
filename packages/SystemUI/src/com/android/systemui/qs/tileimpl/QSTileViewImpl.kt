@@ -98,6 +98,7 @@ constructor(
 
     private val icon: QSIconViewImpl = QSIconViewImpl(context)
     private var position: Int = INVALID
+    private var hasLongClickEffect: Boolean = true
 
     override fun setPosition(position: Int) {
         this.position = position
@@ -349,7 +350,7 @@ constructor(
     }
 
     private fun maybeUpdateLongPressEffectWidth(width: Float) {
-        if (!isLongClickable || longPressEffect == null) return
+        if (!isLongClickable || longPressEffect == null || !hasLongClickEffect) return
 
         initialLongPressProperties?.width = width
         finalLongPressProperties?.width = LONG_PRESS_EFFECT_WIDTH_SCALE * width
@@ -360,7 +361,7 @@ constructor(
     }
 
     private fun maybeUpdateLongPressEffectHeight(height: Float) {
-        if (!isLongClickable || longPressEffect == null) return
+        if (!isLongClickable || longPressEffect == null || !hasLongClickEffect) return
 
         initialLongPressProperties?.height = height
         finalLongPressProperties?.height = LONG_PRESS_EFFECT_HEIGHT_SCALE * height
@@ -651,6 +652,7 @@ constructor(
         val allowAnimations = animationsEnabled()
         isClickable = state.state != Tile.STATE_UNAVAILABLE
         isLongClickable = state.handlesLongClick
+        hasLongClickEffect = (state.handlesLongClick && state.hasLongClickEffect)
         icon.setIcon(state, allowAnimations)
         contentDescription = state.contentDescription
 
@@ -773,9 +775,11 @@ constructor(
             state.handlesLongClick &&
                 longPressEffect?.initializeEffect(longPressEffectDuration) == true
         ) {
-            showRippleEffect = false
-            longPressEffect.qsTile?.state?.state = lastState // Store the tile's state
-            longPressEffect.resetState()
+            if (hasLongClickEffect) {
+                showRippleEffect = false
+                longPressEffect.qsTile?.state?.state = lastState // Store the tile's state
+                longPressEffect.resetState()
+            }
             initializeLongPressProperties(measuredHeight, measuredWidth)
         } else {
             // Long-press effects might have been enabled before but the new state does not
@@ -931,7 +935,7 @@ constructor(
         }
 
     fun updateLongPressEffectProperties(effectProgress: Float) {
-        if (!isLongClickable || longPressEffect == null) return
+        if (!isLongClickable || longPressEffect == null || !hasLongClickEffect) return
 
         if (haveLongPressPropertiesBeenReset) haveLongPressPropertiesBeenReset = false
 
