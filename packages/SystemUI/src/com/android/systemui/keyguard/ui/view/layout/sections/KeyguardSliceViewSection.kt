@@ -80,10 +80,5 @@ constructor(
         }
     }
 
-    override fun removeViews(constraintLayout: ConstraintLayout) {
-        if (!MigrateClocksToBlueprint.isEnabled) return
-        if (smartspaceController.isEnabled) return
-
-        constraintLayout.removeView(R.id.keyguard_slice_view)
-    }
+    override fun removeViews(constraintLayout: ConstraintLayout) {}
 }
