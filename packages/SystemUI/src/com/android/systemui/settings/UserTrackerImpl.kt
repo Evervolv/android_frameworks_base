@@ -195,8 +195,9 @@ internal constructor(
     private fun registerUserSwitchObserver() {
         iActivityManager.registerUserSwitchObserver(
             object : UserSwitchObserver() {
-                override fun onBeforeUserSwitching(newUserId: Int) {
+                override fun onBeforeUserSwitching(newUserId: Int, reply: IRemoteCallback?) {
                     handleBeforeUserSwitching(newUserId)
+                    reply?.sendResult(null)
                 }
 
                 override fun onUserSwitching(newUserId: Int, reply: IRemoteCallback?) {
@@ -235,8 +236,7 @@ internal constructor(
         setUserIdInternal(newUserId)
 
         notifySubscribers { callback, resultCallback ->
-                callback.onBeforeUserSwitching(newUserId)
-                resultCallback.run()
+                callback.onBeforeUserSwitching(newUserId, resultCallback)
             }
             .await()
     }
