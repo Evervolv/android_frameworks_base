@@ -47,7 +47,6 @@ import com.android.systemui.volume.domain.interactor.VolumeDialogInteractor;
 import com.android.systemui.volume.domain.interactor.VolumePanelNavigationInteractor;
 import com.android.systemui.volume.panel.dagger.VolumePanelComponent;
 import com.android.systemui.volume.panel.dagger.factory.VolumePanelComponentFactory;
-import com.android.systemui.volume.panel.shared.flag.VolumePanelFlag;
 import com.android.systemui.volume.ui.navigation.VolumeNavigator;
 
 import com.google.android.msdl.domain.MSDLPlayer;
@@ -119,7 +118,6 @@ public interface VolumeModule {
             VolumeNavigator volumeNavigator,
             CsdWarningDialog.Factory csdFactory,
             DevicePostureController devicePostureController,
-            VolumePanelFlag volumePanelFlag,
             DumpManager dumpManager,
             Lazy<SecureSettings> secureSettings,
             VibratorHelper vibratorHelper,
@@ -143,7 +141,6 @@ public interface VolumeModule {
                     csdFactory,
                     devicePostureController,
                     Looper.getMainLooper(),
-                    volumePanelFlag,
                     dumpManager,
                     secureSettings,
                     vibratorHelper,
