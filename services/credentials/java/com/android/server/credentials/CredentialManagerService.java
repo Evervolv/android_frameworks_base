@@ -31,6 +31,7 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.credentials.ClearCredentialStateRequest;
 import android.credentials.CreateCredentialException;
 import android.credentials.CreateCredentialRequest;
@@ -79,6 +80,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -494,6 +496,31 @@ public final class CredentialManagerService
 
             final int userId = UserHandle.getCallingUserId();
             final int callingUid = Binder.getCallingUid();
+            try {
+                String credentialManagerAutofillCompName = mContext.getResources().getString(
+                        R.string.config_defaultCredentialManagerAutofillService);
+                ComponentName componentName = ComponentName.unflattenFromString(
+                        credentialManagerAutofillCompName);
+                if (componentName == null) {
+                    throw new SecurityException(
+                            "Credential Autofill service does not exist on this device.");
+                }
+                PackageManager pm = mContext.createContextAsUser(
+                        UserHandle.getUserHandleForUid(callingUid), 0).getPackageManager();
+                String callingProcessPackage = pm.getNameForUid(callingUid);
+                if (callingProcessPackage == null) {
+                    throw new SecurityException(
+                            "Couldn't determine the identity of the caller.");
+                }
+                if (!Objects.equals(componentName.getPackageName(), callingProcessPackage)) {
+                    throw new SecurityException(callingProcessPackage
+                            + " is not the device's credential autofill package.");
+                }
+            } catch (Resources.NotFoundException e) {
+                throw new SecurityException(
+                        "Credential Autofill service does not exist on this device.");
+            }
+
 
             // New request session, scoped for this request only.
             final GetCandidateRequestSession session =
