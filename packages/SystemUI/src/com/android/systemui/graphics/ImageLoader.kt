@@ -24,8 +24,10 @@ import android.annotation.WorkerThread
 import android.content.Context
 import android.content.pm.PackageManager
 import android.content.res.Resources
+import android.content.res.Resources.NotFoundException
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
+import android.graphics.ImageDecoder.DecodeException
 import android.graphics.drawable.AdaptiveIconDrawable
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
@@ -37,6 +39,7 @@ import com.android.app.tracing.traceSection
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.dagger.qualifiers.Background
+import java.io.IOException
 import javax.inject.Inject
 import kotlin.math.min
 import kotlinx.coroutines.CoroutineDispatcher
@@ -126,14 +129,17 @@ constructor(
         @Px maxHeight: Int = DEFAULT_MAX_SAFE_BITMAP_SIZE_PX,
         allocator: Int = ImageDecoder.ALLOCATOR_DEFAULT
     ): Bitmap? {
-        return runCatching {
+        return try {
             loadBitmapSync(
                 toImageDecoderSource(source, defaultContext),
                 maxWidth,
                 maxHeight,
                 allocator
             )
-        }.getOrNull()
+        } catch (e: NotFoundException) {
+            Log.w(TAG, "Couldn't load resource $source", e)
+            null
+        }
     }
 
     /**
@@ -159,12 +165,18 @@ constructor(
         allocator: Int = ImageDecoder.ALLOCATOR_DEFAULT
     ): Bitmap? =
         traceSection("ImageLoader#loadBitmap") {
-            return runCatching {
+            return try {
                 ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
                     configureDecoderForMaximumSize(decoder, info.size, maxWidth, maxHeight)
                     decoder.allocator = allocator
                 }
-            }.getOrNull()
+            } catch (e: IOException) {
+                Log.w(TAG, "Failed to load source $source", e)
+                return null
+            } catch (e: DecodeException) {
+                Log.w(TAG, "Failed to decode source $source", e)
+                return null
+            }
         }
 
     /**
@@ -245,7 +257,7 @@ constructor(
         allocator: Int = ImageDecoder.ALLOCATOR_DEFAULT
     ): Drawable? =
         traceSection("ImageLoader#loadDrawable") {
-            return runCatching {
+            return try {
                 loadDrawableSync(
                     toImageDecoderSource(source, defaultContext),
                     maxWidth,
@@ -263,7 +275,10 @@ constructor(
                     } else {
                         null
                     }
-            }.getOrNull()
+            } catch (e: NotFoundException) {
+                Log.w(TAG, "Couldn't load resource $source", e)
+                null
+            }
         }
 
     /**
@@ -289,12 +304,18 @@ constructor(
         allocator: Int = ImageDecoder.ALLOCATOR_DEFAULT
     ): Drawable? =
         traceSection("ImageLoader#loadDrawable") {
-            return runCatching {
+            return try {
                 ImageDecoder.decodeDrawable(source) { decoder, info, _ ->
                     configureDecoderForMaximumSize(decoder, info.size, maxWidth, maxHeight)
                     decoder.allocator = allocator
                 }
-            }.getOrNull()
+            } catch (e: IOException) {
+                Log.w(TAG, "Failed to load source $source", e)
+                return null
+            } catch (e: DecodeException) {
+                Log.w(TAG, "Failed to decode source $source", e)
+                return null
+            }
         }
 
     /** Loads icon drawable while attempting to size restrict the drawable. */
@@ -398,9 +419,15 @@ constructor(
      */
     @WorkerThread
     fun loadSizeSync(source: ImageDecoder.Source): Size? {
-        return runCatching {
+        return try {
             ImageDecoder.decodeHeader(source).size
-        }.getOrNull()
+        } catch (e: IOException) {
+            Log.w(TAG, "Failed to load source $source", e)
+            return null
+        } catch (e: DecodeException) {
+            Log.w(TAG, "Failed to decode source $source", e)
+            return null
+        }
     }
 
     companion object {
