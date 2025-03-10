@@ -16555,22 +16555,22 @@ public class NotificationManagerServiceTest extends UiServiceTestCase {
     public void updateAutomaticZenRule_implicitRuleWithoutCPS_disallowedFromApp() throws Exception {
         setUpRealZenTest();
         mService.setCallerIsNormalPackage();
-        assertThat(mBinderService.getAutomaticZenRules()).isEmpty();
+        assertThat(mBinderService.getAutomaticZenRules().getList()).isEmpty();
 
         // Create an implicit zen rule by calling setNotificationPolicy from an app.
         mBinderService.setNotificationPolicy(mPkg, new NotificationManager.Policy(0, 0, 0), false);
-        assertThat(mBinderService.getAutomaticZenRules()).hasSize(1);
-        Map.Entry<String, AutomaticZenRule> rule = getOnlyElement(
-                mBinderService.getAutomaticZenRules().entrySet());
-        assertThat(rule.getValue().getOwner()).isNull();
-        assertThat(rule.getValue().getConfigurationActivity()).isNull();
+        assertThat(mBinderService.getAutomaticZenRules().getList()).hasSize(1);
+        AutomaticZenRule.AzrWithId rule = getOnlyElement(
+                (List<AutomaticZenRule.AzrWithId>) mBinderService.getAutomaticZenRules().getList());
+        assertThat(rule.mRule.getOwner()).isNull();
+        assertThat(rule.mRule.getConfigurationActivity()).isNull();
 
         // Now try to update said rule (e.g. disable it). Should fail.
         // We also validate the exception message because NPE could be thrown by all sorts of test
         // issues (e.g. misconfigured mocks).
-        rule.getValue().setEnabled(false);
+        rule.mRule.setEnabled(false);
         NullPointerException e = assertThrows(NullPointerException.class,
-                () -> mBinderService.updateAutomaticZenRule(rule.getKey(), rule.getValue(), false));
+                () -> mBinderService.updateAutomaticZenRule(rule.mId, rule.mRule, false));
         assertThat(e.getMessage()).isEqualTo(
                 "Rule must have a ConditionProviderService and/or configuration activity");
     }
@@ -16581,24 +16581,24 @@ public class NotificationManagerServiceTest extends UiServiceTestCase {
     public void updateAutomaticZenRule_implicitRuleWithoutCPS_allowedFromSystem() throws Exception {
         setUpRealZenTest();
         mService.setCallerIsNormalPackage();
-        assertThat(mBinderService.getAutomaticZenRules()).isEmpty();
+        assertThat(mBinderService.getAutomaticZenRules().getList()).isEmpty();
 
         // Create an implicit zen rule by calling setNotificationPolicy from an app.
         mBinderService.setNotificationPolicy(mPkg, new NotificationManager.Policy(0, 0, 0), false);
-        assertThat(mBinderService.getAutomaticZenRules()).hasSize(1);
-        Map.Entry<String, AutomaticZenRule> rule = getOnlyElement(
-                mBinderService.getAutomaticZenRules().entrySet());
-        assertThat(rule.getValue().getOwner()).isNull();
-        assertThat(rule.getValue().getConfigurationActivity()).isNull();
+        assertThat(mBinderService.getAutomaticZenRules().getList()).hasSize(1);
+        AutomaticZenRule.AzrWithId rule = getOnlyElement(
+                (List<AutomaticZenRule.AzrWithId>) mBinderService.getAutomaticZenRules().getList());
+        assertThat(rule.mRule.getOwner()).isNull();
+        assertThat(rule.mRule.getConfigurationActivity()).isNull();
 
         // Now update said rule from Settings (e.g. disable it). Should work!
         mService.isSystemUid = true;
-        rule.getValue().setEnabled(false);
-        mBinderService.updateAutomaticZenRule(rule.getKey(), rule.getValue(), false);
+        rule.mRule.setEnabled(false);
+        mBinderService.updateAutomaticZenRule(rule.mId, rule.mRule, false);
 
-        Map.Entry<String, AutomaticZenRule> updatedRule = getOnlyElement(
-                mBinderService.getAutomaticZenRules().entrySet());
-        assertThat(updatedRule.getValue().isEnabled()).isFalse();
+        AutomaticZenRule.AzrWithId updatedRule = getOnlyElement(
+                (List<AutomaticZenRule.AzrWithId>) mBinderService.getAutomaticZenRules().getList());
+        assertThat(updatedRule.mRule.isEnabled()).isFalse();
     }
 
     @Test

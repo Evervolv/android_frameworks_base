@@ -1426,11 +1426,19 @@ public class NotificationManager {
         INotificationManager service = service();
         try {
             if (Flags.modesApi()) {
-                return service.getAutomaticZenRules();
+                Map<String, AutomaticZenRule> result = new HashMap<>();
+                ParceledListSlice<AutomaticZenRule.AzrWithId> parceledRules =
+                        service.getAutomaticZenRules();
+                if (parceledRules != null) {
+                    for (AutomaticZenRule.AzrWithId rule : parceledRules.getList()) {
+                        result.put(rule.mId, rule.mRule);
+                    }
+                }
+                return result;
             } else {
-                List<ZenModeConfig.ZenRule> rules = service.getZenRules();
+                ParceledListSlice<ZenModeConfig.ZenRule> rules = service.getZenRules();
                 Map<String, AutomaticZenRule> ruleMap = new HashMap<>();
-                for (ZenModeConfig.ZenRule rule : rules) {
+                for (ZenModeConfig.ZenRule rule : rules.getList()) {
                     AutomaticZenRule azr = new AutomaticZenRule(rule.name, rule.component,
                             rule.configurationActivity, rule.conditionId, rule.zenPolicy,
                             zenModeToInterruptionFilter(rule.zenMode), rule.enabled,

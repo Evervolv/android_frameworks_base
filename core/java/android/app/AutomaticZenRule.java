@@ -241,7 +241,7 @@ public final class AutomaticZenRule implements Parcelable {
     public AutomaticZenRule(Parcel source) {
         enabled = source.readInt() == ENABLED;
         if (source.readInt() == ENABLED) {
-            name = getTrimmedString(source.readString());
+            name = getTrimmedString(source.readString8());
         }
         interruptionFilter = source.readInt();
         conditionId = getTrimmedUri(source.readParcelable(null, android.net.Uri.class));
@@ -252,12 +252,12 @@ public final class AutomaticZenRule implements Parcelable {
         creationTime = source.readLong();
         mZenPolicy = source.readParcelable(null, ZenPolicy.class);
         mModified = source.readInt() == ENABLED;
-        mPkg = source.readString();
+        mPkg = source.readString8();
         if (Flags.modesApi()) {
             mDeviceEffects = source.readParcelable(null, ZenDeviceEffects.class);
             mAllowManualInvocation = source.readBoolean();
             mIconResId = source.readInt();
-            mTriggerDescription = getTrimmedString(source.readString(), MAX_DESC_LENGTH);
+            mTriggerDescription = getTrimmedString(source.readString8(), MAX_DESC_LENGTH);
             mType = source.readInt();
         }
     }
@@ -561,7 +561,7 @@ public final class AutomaticZenRule implements Parcelable {
         dest.writeInt(enabled ? ENABLED : DISABLED);
         if (name != null) {
             dest.writeInt(1);
-            dest.writeString(name);
+            dest.writeString8(name);
         } else {
             dest.writeInt(0);
         }
@@ -572,12 +572,12 @@ public final class AutomaticZenRule implements Parcelable {
         dest.writeLong(creationTime);
         dest.writeParcelable(mZenPolicy, 0);
         dest.writeInt(mModified ? ENABLED : DISABLED);
-        dest.writeString(mPkg);
+        dest.writeString8(mPkg);
         if (Flags.modesApi()) {
             dest.writeParcelable(mDeviceEffects, 0);
             dest.writeBoolean(mAllowManualInvocation);
             dest.writeInt(mIconResId);
-            dest.writeString(mTriggerDescription);
+            dest.writeString8(mTriggerDescription);
             dest.writeInt(mType);
         }
     }
@@ -903,6 +903,43 @@ public final class AutomaticZenRule implements Parcelable {
             rule.setPackageName(mPkg);
 
             return rule;
+        }
+    }
+
+    /** @hide */
+    public static final class AzrWithId implements Parcelable {
+        public final String mId;
+        public final AutomaticZenRule mRule;
+
+        public AzrWithId(String id, AutomaticZenRule rule) {
+            mId = id;
+            mRule = rule;
+        }
+
+        public static final Creator<AzrWithId> CREATOR = new Creator<>() {
+            @Override
+            public AzrWithId createFromParcel(Parcel in) {
+                return new AzrWithId(
+                        in.readString8(),
+                        in.readParcelable(AutomaticZenRule.class.getClassLoader(),
+                                AutomaticZenRule.class));
+            }
+
+            @Override
+            public AzrWithId[] newArray(int size) {
+                return new AzrWithId[size];
+            }
+        };
+
+        @Override
+        public void writeToParcel(@NonNull Parcel dest, int flags) {
+            dest.writeString8(mId);
+            dest.writeParcelable(mRule, flags);
+        }
+
+        @Override
+        public int describeContents() {
+            return 0;
         }
     }
 }
