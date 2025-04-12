@@ -563,6 +563,10 @@ class TestPhoneWindowManager {
         doNothing().when(mPhoneWindowManager).launchHomeFromHotKey(anyInt());
     }
 
+    void overrideKeyguardOn(boolean isKeyguardOn) {
+        doReturn(isKeyguardOn).when(mPhoneWindowManager).keyguardOn();
+    }
+
     void overrideIsUserSetupComplete(boolean isCompleted) {
         doReturn(isCompleted).when(mPhoneWindowManager).isUserSetupComplete();
     }
@@ -723,6 +727,11 @@ class TestPhoneWindowManager {
     void assertSearchManagerLaunchAssist() {
         mTestLooper.dispatchAll();
         verify(mSearchManager).launchAssist(any());
+    }
+
+    void assertSearchManagerDoesntLaunchAssist() {
+        mTestLooper.dispatchAll();
+        verify(mSearchManager, never()).launchAssist(any());
     }
 
     void assertLaunchSystemSettings() {
@@ -928,5 +937,11 @@ class TestPhoneWindowManager {
     void assertKeyGestureEventSentToKeyGestureController(int gestureType) {
         verify(mInputManagerInternal)
                 .handleKeyGestureInKeyGestureController(anyInt(), any(), anyInt(), eq(gestureType));
+    }
+
+    void assertNoActivityLaunched() {
+        mTestLooper.dispatchAll();
+        verify(mContext, never()).startActivityAsUser(any(), any(), any());
+        verify(mContext, never()).startActivityAsUser(any(), any());
     }
 }

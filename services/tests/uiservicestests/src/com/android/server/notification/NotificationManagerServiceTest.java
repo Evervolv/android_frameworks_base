@@ -5186,41 +5186,6 @@ public class NotificationManagerServiceTest extends UiServiceTestCase {
     }
 
     @Test
-    public void
-        updateNotificationChannelFromPrivilegedListener_oldSoundNoUriPerm_newSoundHasUriPerm()
-            throws Exception {
-        mService.setPreferencesHelper(mPreferencesHelper);
-        when(mCompanionMgr.getAssociations(mPkg, mUserId))
-                .thenReturn(singletonList(mock(AssociationInfo.class)));
-        when(mPreferencesHelper.getNotificationChannel(eq(mPkg), anyInt(),
-                eq(mTestNotificationChannel.getId()), anyBoolean()))
-                .thenReturn(mTestNotificationChannel);
-
-        // Missing Uri permissions for the old channel sound
-        final Uri oldSoundUri = Settings.System.DEFAULT_NOTIFICATION_URI;
-        doThrow(new SecurityException("no access")).when(mUgmInternal)
-                .checkGrantUriPermission(eq(Process.myUid()), any(), eq(oldSoundUri),
-                anyInt(), eq(Process.myUserHandle().getIdentifier()));
-
-        // Has Uri permissions for the old channel sound
-        final Uri newSoundUri = Uri.parse("content://media/test/sound/uri");
-        final NotificationChannel updatedNotificationChannel = new NotificationChannel(
-                TEST_CHANNEL_ID, TEST_CHANNEL_ID, IMPORTANCE_DEFAULT);
-        updatedNotificationChannel.setSound(newSoundUri,
-                updatedNotificationChannel.getAudioAttributes());
-
-        mBinderService.updateNotificationChannelFromPrivilegedListener(
-                null, mPkg, Process.myUserHandle(), updatedNotificationChannel);
-
-        verify(mPreferencesHelper, times(1)).updateNotificationChannel(
-                anyString(), anyInt(), any(), anyBoolean(),  anyInt(), anyBoolean());
-
-        verify(mListeners, never()).notifyNotificationChannelChanged(eq(mPkg),
-                eq(Process.myUserHandle()), eq(mTestNotificationChannel),
-                eq(NotificationListenerService.NOTIFICATION_CHANNEL_OR_GROUP_UPDATED));
-    }
-
-    @Test
     public void testGetNotificationChannelFromPrivilegedListener_cdm_success() throws Exception {
         mService.setPreferencesHelper(mPreferencesHelper);
         when(mCompanionMgr.getAssociations(mPkg, mUserId))

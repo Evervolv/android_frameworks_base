@@ -891,7 +891,9 @@ class RootWindowContainer extends WindowContainer<DisplayContent>
                     0).sendToTarget();
             // Post these on a handler such that we don't call into power manager service while
             // holding the window manager lock to avoid lock contention with power manager lock.
-            mHandler.obtainMessage(SET_SCREEN_BRIGHTNESS_OVERRIDE, mDisplayBrightnessOverrides)
+            // Send a copy of the brightness overrides as they may be cleared before being sent out.
+            mHandler.obtainMessage(SET_SCREEN_BRIGHTNESS_OVERRIDE,
+                    mDisplayBrightnessOverrides.clone())
                     .sendToTarget();
             mHandler.obtainMessage(SET_USER_ACTIVITY_TIMEOUT, mUserActivityTimeout).sendToTarget();
         }
