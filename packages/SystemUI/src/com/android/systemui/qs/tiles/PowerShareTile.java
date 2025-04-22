@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 The LineageOS Project
+ * Copyright (C) 2020-2025 The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,8 +24,9 @@ import android.os.BatteryManager;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.RemoteException;
+import android.os.ServiceManager;
 import android.service.quicksettings.Tile;
-import android.view.View;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
 
@@ -46,9 +47,7 @@ import com.android.systemui.statusbar.policy.BatteryController;
 
 import com.evervolv.internal.logging.EVMetricsLogger;
 
-import vendor.lineage.powershare.V1_0.IPowerShare;
-
-import java.util.NoSuchElementException;
+import vendor.lineage.powershare.IPowerShare;
 
 import javax.inject.Inject;
 
@@ -154,11 +153,8 @@ public class PowerShareTile extends QSTileImpl<BooleanState>
     @Override
     public void handleClick(@Nullable Expandable expandable) {
         try {
-            boolean powerShareEnabled = mPowerShare.isEnabled();
-
-            if (mPowerShare.setEnabled(!powerShareEnabled) != powerShareEnabled) {
-                refreshState();
-            }
+            mPowerShare.setEnabled(!mPowerShare.isEnabled());
+            refreshState();
         } catch (RemoteException ex) {
             ex.printStackTrace();
         }
@@ -217,15 +213,15 @@ public class PowerShareTile extends QSTileImpl<BooleanState>
     }
 
     private synchronized IPowerShare getPowerShare() {
-        try {
-            return IPowerShare.getService();
-        } catch (RemoteException ex) {
-            ex.printStackTrace();
-        } catch (NoSuchElementException ex) {
-            // service not available
-        }
+        final String fqName = IPowerShare.DESCRIPTOR + "/default";
 
-        return null;
+        try {
+            return IPowerShare.Stub.asInterface(ServiceManager.getService(fqName));
+        } catch (Exception e) {
+            // Handle both RemoteException and ServiceNotFoundException
+            Log.e(TAG, "Failed to get PowerShare service", e);
+            return null;
+        }
     }
 
     private int getMinBatteryLevel() {
