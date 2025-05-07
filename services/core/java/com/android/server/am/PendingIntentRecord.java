@@ -24,6 +24,8 @@ import static android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_COMPAT;
 import static android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_DENIED;
 import static android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_SYSTEM_DEFINED;
 import static android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE;
+import static android.os.PowerWhitelistManager.TEMPORARY_ALLOWLIST_TYPE_FOREGROUND_SERVICE_ALLOWED;
+import static android.os.PowerWhitelistManager.TEMPORARY_ALLOWLIST_TYPE_FOREGROUND_SERVICE_NOT_ALLOWED;
 import static android.os.Process.ROOT_UID;
 import static android.os.Process.SYSTEM_UID;
 
@@ -305,6 +307,10 @@ public final class PendingIntentRecord extends IIntentSender.Stub {
         this.stringName = null;
     }
 
+    @VisibleForTesting TempAllowListDuration getAllowlistDurationLocked(IBinder allowlistToken) {
+        return mAllowlistDuration.get(allowlistToken);
+    }
+
     void setAllowBgActivityStarts(IBinder token, int flags) {
         if (token == null) return;
         if ((flags & FLAG_ACTIVITY_SENDER) != 0) {
@@ -323,6 +329,13 @@ public final class PendingIntentRecord extends IIntentSender.Stub {
         mAllowBgActivityStartsForActivitySender.remove(token);
         mAllowBgActivityStartsForBroadcastSender.remove(token);
         mAllowBgActivityStartsForServiceSender.remove(token);
+        if (mAllowlistDuration != null) {
+            TempAllowListDuration duration = mAllowlistDuration.get(token);
+            if (duration != null
+                    && duration.type == TEMPORARY_ALLOWLIST_TYPE_FOREGROUND_SERVICE_ALLOWED) {
+                duration.type = TEMPORARY_ALLOWLIST_TYPE_FOREGROUND_SERVICE_NOT_ALLOWED;
+            }
+        }
     }
 
     public void registerCancelListenerLocked(IResultReceiver receiver) {
@@ -703,7 +716,7 @@ public final class PendingIntentRecord extends IIntentSender.Stub {
         return res;
     }
 
-    private BackgroundStartPrivileges getBackgroundStartPrivilegesForActivitySender(
+    @VisibleForTesting BackgroundStartPrivileges getBackgroundStartPrivilegesForActivitySender(
             IBinder allowlistToken) {
         return mAllowBgActivityStartsForActivitySender.contains(allowlistToken)
                 ? BackgroundStartPrivileges.allowBackgroundActivityStarts(allowlistToken)

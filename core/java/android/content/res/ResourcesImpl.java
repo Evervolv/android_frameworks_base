@@ -491,6 +491,9 @@ public class ResourcesImpl {
                             }
                             defaultLocale =
                                     adjustLanguageTag(lc.getDefaultLocale().toLanguageTag());
+                            Slog.v(TAG, "Updating configuration, with default locale "
+                                    + defaultLocale + " and selected locales "
+                                    + Arrays.toString(selectedLocales));
                         } else {
                             String[] availableLocales;
                             // The LocaleList has changed. We must query the AssetManager's
@@ -526,6 +529,7 @@ public class ResourcesImpl {
                         for (int i = 0; i < locales.size(); i++) {
                             selectedLocales[i] = adjustLanguageTag(locales.get(i).toLanguageTag());
                         }
+                        defaultLocale = adjustLanguageTag(lc.getDefaultLocale().toLanguageTag());
                     } else {
                         selectedLocales = new String[]{
                                 adjustLanguageTag(locales.get(0).toLanguageTag())};

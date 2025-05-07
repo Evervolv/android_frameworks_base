@@ -180,6 +180,7 @@ import com.android.server.SystemServiceManager;
 import com.android.server.companion.virtual.VirtualDeviceManagerInternal;
 import com.android.server.pm.PackageList;
 import com.android.server.pm.PackageManagerLocal;
+import com.android.server.pm.ProtectedPackages;
 import com.android.server.pm.UserManagerInternal;
 import com.android.server.pm.pkg.AndroidPackage;
 import com.android.server.pm.pkg.PackageState;
@@ -235,6 +236,13 @@ public class AppOpsService extends IAppOpsService.Stub {
      * Increment by one every time an upgrade step is added at boot, none currently exists.
      */
     private static final int CURRENT_VERSION = 1;
+
+    /**
+     * The upper limit of total number of attributed op entries that can be returned in a binder
+     * transaction to avoid TransactionTooLargeException
+     */
+    private static final int NUM_ATTRIBUTED_OP_ENTRY_THRESHOLD = 2000;
+
 
     private SensorPrivacyManager mSensorPrivacyManager;
 
@@ -300,6 +308,8 @@ public class AppOpsService extends IAppOpsService.Stub {
 
     private final IPlatformCompat mPlatformCompat = IPlatformCompat.Stub.asInterface(
             ServiceManager.getService(Context.PLATFORM_COMPAT_SERVICE));
+
+    private ProtectedPackages mProtectedPackages;
 
     /**
      * Registered callbacks, called from {@link #collectAsyncNotedOp}.
@@ -1699,6 +1709,8 @@ public class AppOpsService extends IAppOpsService.Stub {
                 Manifest.permission.GET_APP_OPS_STATS,
                 Binder.getCallingPid(), Binder.getCallingUid())
                 == PackageManager.PERMISSION_GRANTED;
+        int totalAttributedOpEntryCount = 0;
+
         if (ops == null) {
             resOps = new ArrayList<>();
             for (int j = 0; j < pkgOps.size(); j++) {
@@ -1706,7 +1718,12 @@ public class AppOpsService extends IAppOpsService.Stub {
                 if (opRestrictsRead(curOp.op) && !shouldReturnRestrictedAppOps) {
                     continue;
                 }
-                resOps.add(getOpEntryForResult(curOp, persistentDeviceId));
+                if (totalAttributedOpEntryCount > NUM_ATTRIBUTED_OP_ENTRY_THRESHOLD) {
+                    break;
+                }
+                OpEntry opEntry = getOpEntryForResult(curOp, persistentDeviceId);
+                resOps.add(opEntry);
+                totalAttributedOpEntryCount += opEntry.getAttributedOpEntries().size();
             }
         } else {
             for (int j = 0; j < ops.length; j++) {
@@ -1718,10 +1735,21 @@ public class AppOpsService extends IAppOpsService.Stub {
                     if (opRestrictsRead(curOp.op) && !shouldReturnRestrictedAppOps) {
                         continue;
                     }
-                    resOps.add(getOpEntryForResult(curOp, persistentDeviceId));
+                    if (totalAttributedOpEntryCount > NUM_ATTRIBUTED_OP_ENTRY_THRESHOLD) {
+                        break;
+                    }
+                    OpEntry opEntry = getOpEntryForResult(curOp, persistentDeviceId);
+                    resOps.add(opEntry);
+                    totalAttributedOpEntryCount += opEntry.getAttributedOpEntries().size();
                 }
             }
         }
+
+        if (totalAttributedOpEntryCount > NUM_ATTRIBUTED_OP_ENTRY_THRESHOLD) {
+            Slog.w(TAG, "The number of attributed op entries has exceeded the threshold. This "
+                    + "could be due to DoS attack from malicious apps. The result is throttled.");
+        }
+
         return resOps;
     }
 
@@ -2074,6 +2102,12 @@ public class AppOpsService extends IAppOpsService.Stub {
 
         enforceManageAppOpsModes(Binder.getCallingPid(), Binder.getCallingUid(), uid);
         verifyIncomingOp(code);
+
+        if (isDeviceProvisioningPackage(uid, null)) {
+            Slog.w(TAG, "Cannot set uid mode for device provisioning app by Shell");
+            return;
+        }
+
         code = AppOpsManager.opToSwitch(code);
 
         if (permissionPolicyCallback == null) {
@@ -2384,6 +2418,11 @@ public class AppOpsService extends IAppOpsService.Stub {
             return;
         }
 
+        if (isDeviceProvisioningPackage(uid, packageName)) {
+            Slog.w(TAG, "Cannot set op mode for device provisioning app by Shell");
+            return;
+        }
+
         code = AppOpsManager.opToSwitch(code);
 
         PackageVerificationResult pvr;
@@ -2412,6 +2451,36 @@ public class AppOpsService extends IAppOpsService.Stub {
         }
 
         notifyStorageManagerOpModeChangedSync(code, uid, packageName, mode, previousMode);
+    }
+
+    // Device provisioning package is restricted from setting app op mode through shell command
+    private boolean isDeviceProvisioningPackage(int uid,
+            @Nullable String packageName) {
+        if (UserHandle.getAppId(Binder.getCallingUid()) == Process.SHELL_UID) {
+            ProtectedPackages protectedPackages = getProtectedPackages();
+
+            if (packageName != null && protectedPackages.isDeviceProvisioningPackage(packageName)) {
+                return true;
+            }
+
+            String[] packageNames = mContext.getPackageManager().getPackagesForUid(uid);
+            if (packageNames != null) {
+                for (String pkg : packageNames) {
+                    if (protectedPackages.isDeviceProvisioningPackage(pkg)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    // Race condition is allowed here for better performance
+    private ProtectedPackages getProtectedPackages() {
+        if (mProtectedPackages == null) {
+            mProtectedPackages = new ProtectedPackages(mContext);
+        }
+        return mProtectedPackages;
     }
 
     private void notifyOpChanged(ArraySet<OnOpModeChangedListener> callbacks, int code,

@@ -409,19 +409,17 @@ static void NativeSetConfiguration(JNIEnv* env, jclass /*clazz*/, jlong ptr, jin
     configs.push_back(configuration);
   }
 
-  uint32_t default_locale_int = 0;
+  std::optional<ResTable_config> default_locale_opt;
   if (default_locale != nullptr) {
-    ResTable_config config;
-    static_assert(std::is_same_v<decltype(config.locale), decltype(default_locale_int)>);
-    ScopedUtfChars locale_utf8(env, default_locale);
-    CHECK(locale_utf8.c_str() != nullptr);
-    config.setBcp47Locale(locale_utf8.c_str());
-    default_locale_int = config.locale;
+      ScopedUtfChars locale_utf8(env, default_locale);
+      CHECK(locale_utf8.c_str() != nullptr);
+      default_locale_opt.emplace();
+      default_locale_opt->setBcp47Locale(locale_utf8.c_str());
   }
 
   auto assetmanager = LockAndStartAssetManager(ptr);
   assetmanager->SetConfigurations(std::move(configs), force_refresh != JNI_FALSE);
-  assetmanager->SetDefaultLocale(default_locale_int);
+  assetmanager->SetDefaultLocale(default_locale_opt);
 }
 
 static jobject NativeGetAssignedPackageIdentifiers(JNIEnv* env, jclass /*clazz*/, jlong ptr,

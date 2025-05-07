@@ -23,6 +23,7 @@
 #include <map>
 #include <set>
 #include <span>
+#include <sstream>
 #include <utility>
 
 #include "android-base/logging.h"
@@ -438,6 +439,24 @@ bool AssetManager2::ContainsAllocatedTable() const {
   return false;
 }
 
+static std::string ConfigVecToString(std::span<const ResTable_config> configurations) {
+  std::stringstream ss;
+  ss << "[";
+  bool first = true;
+  for (const auto& config : configurations) {
+    if (!first) {
+      ss << ",";
+    }
+    char out[RESTABLE_MAX_LOCALE_LEN] = {};
+    config.getBcp47Locale(out);
+    ss << out;
+    first = false;
+  }
+  ss << "]";
+  return ss.str();
+}
+
+
 void AssetManager2::SetConfigurations(std::span<const ResTable_config> configurations,
                                       bool force_refresh) {
   int diff = 0;
@@ -452,6 +471,17 @@ void AssetManager2::SetConfigurations(std::span<const ResTable_config> configura
       }
     }
   }
+
+  // Log the locale list change to investigate b/392255526
+  if (diff & ConfigDescription::CONFIG_LOCALE) {
+    auto oldstr = ConfigVecToString(configurations_);
+    auto newstr = ConfigVecToString(configurations);
+    if (oldstr != newstr) {
+      LOG(INFO) << "AssetManager2(" << this << ") locale list changing from "
+                << oldstr << " to " << newstr;
+    }
+  }
+
   configurations_.clear();
   for (auto&& config : configurations) {
     configurations_.emplace_back(config);
@@ -460,6 +490,28 @@ void AssetManager2::SetConfigurations(std::span<const ResTable_config> configura
     RebuildFilterList();
     InvalidateCaches(static_cast<uint32_t>(diff));
   }
+}
+
+void AssetManager2::SetDefaultLocale(std::optional<ResTable_config> default_locale) {
+  int diff = 0;
+  if (default_locale_ && default_locale) {
+    diff = default_locale_->diff(default_locale.value());
+  } else if (default_locale_ || default_locale) {
+    diff = -1;
+  }
+  if (diff & ConfigDescription::CONFIG_LOCALE) {
+    char old_loc[RESTABLE_MAX_LOCALE_LEN] = {};
+    char new_loc[RESTABLE_MAX_LOCALE_LEN] = {};
+    if (default_locale_) {
+      default_locale_->getBcp47Locale(old_loc);
+    }
+    if (default_locale) {
+      default_locale->getBcp47Locale(new_loc);
+    }
+    LOG(INFO) << "AssetManager2(" << this << ") default locale changing from '"
+              << old_loc << "' to '" << new_loc << "'";
+  }
+  default_locale_ = default_locale;
 }
 
 std::set<AssetManager2::ApkAssetsPtr> AssetManager2::GetNonSystemOverlays() const {
@@ -708,7 +760,7 @@ base::expected<FindEntryResult, NullOrIOError> AssetManager2::FindEntry(
             ConfigDescription best_frro_config;
             Res_value best_frro_value;
             bool frro_found = false;
-            for( const auto& [config, value] : overlay_entry.GetInlineValue()) {
+            for (const auto& [config, value] : overlay_entry.GetInlineValue()) {
               if ((!frro_found || config.isBetterThan(best_frro_config, desired_config))
                   && config.match(*desired_config)) {
                 frro_found = true;
@@ -787,11 +839,11 @@ base::expected<FindEntryResult, NullOrIOError> AssetManager2::FindEntry(
 
     bool has_locale = false;
     if (result->config.locale == 0) {
-      if (default_locale_ != 0) {
-        ResTable_config conf = {.locale = default_locale_};
-        // Since we know conf has a locale and only a locale, match will tell us if that locale
-        // matches
-        has_locale = conf.match(config);
+      // The default_locale_ is the locale used for any resources with no locale in the config
+      if (default_locale_) {
+        // Since we know default_locale_ has a locale and only a locale, match will tell us if that
+        // locale matches
+        has_locale = default_locale_->match(config);
       }
     } else {
       has_locale = true;
