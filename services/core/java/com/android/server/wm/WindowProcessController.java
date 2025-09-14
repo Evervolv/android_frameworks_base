@@ -727,7 +727,8 @@ public class WindowProcessController extends ConfigurationContainer<Configuratio
             int appSwitchState, BalCheckConfiguration checkConfiguration) {
         return mBgLaunchController.areBackgroundActivityStartsAllowed(mPid, mUid,
                 mInfo.packageName, appSwitchState, checkConfiguration,
-                hasActivityInVisibleTask(), mInstrumentingWithBackgroundActivityStartPrivileges,
+                hasActivityInVisibleTask(), inPinnedWindowingMode(),
+                mInstrumentingWithBackgroundActivityStartPrivileges,
                 mAtm.getLastStopAppSwitchesTime(),
                 mLastActivityLaunchTime, mLastActivityFinishTime);
     }

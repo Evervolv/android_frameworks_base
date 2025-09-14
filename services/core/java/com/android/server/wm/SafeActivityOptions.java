@@ -24,6 +24,7 @@ import static android.Manifest.permission.STATUS_BAR_SERVICE;
 import static android.app.ActivityTaskManager.INVALID_TASK_ID;
 import static android.app.WindowConfiguration.ACTIVITY_TYPE_ASSISTANT;
 import static android.app.WindowConfiguration.ACTIVITY_TYPE_UNDEFINED;
+import static android.app.WindowConfiguration.WINDOWING_MODE_PINNED;
 import static android.app.WindowConfiguration.activityTypeToString;
 import static android.content.pm.PackageManager.PERMISSION_DENIED;
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
@@ -368,6 +369,17 @@ public class SafeActivityOptions {
                     + ", uid=" + callingUid + ") with"
                     + (options.getLaunchedFromBubble() ? " launchedFromBubble=true" : "")
                     + (options.getTaskAlwaysOnTop() ? " taskAlwaysOnTop=true" : "");
+            Slog.w(TAG, msg);
+            throw new SecurityException(msg);
+        }
+
+        // setLaunchWindowingMode(PINNED) is not allowed, use ActivityOptions#makeLaunchIntoPip
+        // instead which is a public API.
+        if (options.getLaunchWindowingMode() == WINDOWING_MODE_PINNED) {
+            final String msg = "Permission Denial: starting " + getIntentString(intent)
+                    + " from " + callerApp + " (pid=" + callingPid
+                    + ", uid=" + callingUid + ") with"
+                    + " setLaunchWindowingMode=PINNED";
             Slog.w(TAG, msg);
             throw new SecurityException(msg);
         }

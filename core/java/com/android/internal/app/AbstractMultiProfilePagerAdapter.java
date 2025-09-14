@@ -358,7 +358,7 @@ public abstract class AbstractMultiProfilePagerAdapter extends PagerAdapter {
 
             return intents.stream().anyMatch(intent ->
                     null != IntentForwarderActivity.canForward(intent, source, target,
-                            packageManager, mContentResolver));
+                            packageManager, intent.resolveTypeIfNeeded(mContentResolver)));
         }
     }
 

@@ -1496,22 +1496,36 @@ public class ApplicationPackageManager extends PackageManager {
 
     @Override
     public ResolveInfo resolveActivity(Intent intent, ResolveInfoFlags flags) {
-        return resolveActivityAsUser(intent, flags, getUserId());
+        return resolveActivityAsUser(intent, /* resolvedType= */ null, flags, getUserId());
     }
 
     @Override
     public ResolveInfo resolveActivityAsUser(Intent intent, int flags, int userId) {
-        return resolveActivityAsUser(intent, ResolveInfoFlags.of(flags), userId);
+        return resolveActivityAsUser(intent, /* resolvedType= */ null, ResolveInfoFlags.of(flags),
+                userId);
     }
 
     @Override
     public ResolveInfo resolveActivityAsUser(Intent intent, ResolveInfoFlags flags, int userId) {
+        return resolveActivityAsUser(intent, /* resolvedType= */ null, flags, userId);
+    }
+
+    @Override
+    public ResolveInfo resolveActivityAsUser(Intent intent, String resolvedType,
+            int flags, int userId) {
+        return resolveActivityAsUser(intent, resolvedType,
+                ResolveInfoFlags.of(flags), userId);
+    }
+
+    @Override
+    public ResolveInfo resolveActivityAsUser(Intent intent, String resolvedType,
+            ResolveInfoFlags flags, int userId) {
         try {
-            return mPM.resolveIntent(
-                intent,
-                intent.resolveTypeIfNeeded(mContext.getContentResolver()),
-                updateFlagsForComponent(flags.getValue(), userId, intent),
-                userId);
+            return mPM.resolveIntent(intent,
+                    resolvedType == null
+                        ? intent.resolveTypeIfNeeded(mContext.getContentResolver())
+                        : resolvedType,
+                    updateFlagsForComponent(flags.getValue(), userId, intent), userId);
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }

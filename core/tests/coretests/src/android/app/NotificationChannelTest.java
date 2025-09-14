@@ -256,6 +256,36 @@ public class NotificationChannelTest {
     }
 
     @Test
+    public void testSetId_longStringIsTrimmed() {
+        NotificationChannel channel =
+                new NotificationChannel("id", "name", NotificationManager.IMPORTANCE_DEFAULT);
+        String longId = Strings.repeat("A", NotificationChannel.MAX_TEXT_LENGTH + 10);
+
+        channel.setId(longId);
+
+        assertThat(channel.getId()).hasLength(NotificationChannel.MAX_TEXT_LENGTH);
+        assertThat(channel.getId())
+                .isEqualTo(longId.substring(0, NotificationChannel.MAX_TEXT_LENGTH));
+    }
+
+    @Test
+    public void testSetConversationId_longStringsAreTrimmed() {
+        NotificationChannel channel =
+                new NotificationChannel("id", "name", NotificationManager.IMPORTANCE_DEFAULT);
+        String longParentId = Strings.repeat("P", NotificationChannel.MAX_TEXT_LENGTH + 10);
+        String longConversationId = Strings.repeat("C", NotificationChannel.MAX_TEXT_LENGTH + 10);
+
+        channel.setConversationId(longParentId, longConversationId);
+
+        assertThat(channel.getParentChannelId()).hasLength(NotificationChannel.MAX_TEXT_LENGTH);
+        assertThat(channel.getParentChannelId())
+                .isEqualTo(longParentId.substring(0, NotificationChannel.MAX_TEXT_LENGTH));
+        assertThat(channel.getConversationId()).hasLength(NotificationChannel.MAX_TEXT_LENGTH);
+        assertThat(channel.getConversationId())
+                .isEqualTo(longConversationId.substring(0, NotificationChannel.MAX_TEXT_LENGTH));
+    }
+
+    @Test
     @EnableFlags({Flags.FLAG_NOTIFICATION_CHANNEL_VIBRATION_EFFECT_API,
             Flags.FLAG_NOTIF_CHANNEL_CROP_VIBRATION_EFFECTS})
     public void testLongVibrationFields_canWriteToXml() throws Exception {

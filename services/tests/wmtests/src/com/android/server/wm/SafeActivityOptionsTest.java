@@ -17,6 +17,7 @@
 package com.android.server.wm;
 
 import static android.app.WindowConfiguration.ACTIVITY_TYPE_STANDARD;
+import static android.app.WindowConfiguration.WINDOWING_MODE_PINNED;
 import static android.content.pm.PackageManager.PERMISSION_DENIED;
 import static android.view.Display.DEFAULT_DISPLAY;
 
@@ -195,6 +196,10 @@ public class SafeActivityOptionsTest {
 
             activityOptions = ActivityOptions.makeBasic();
             activityOptions.setRemoteTransition(remoteTransition);
+            verifySecureExceptionThrown(activityOptions, taskSupervisor);
+
+            activityOptions = ActivityOptions.makeBasic();
+            activityOptions.setLaunchWindowingMode(WINDOWING_MODE_PINNED);
             verifySecureExceptionThrown(activityOptions, taskSupervisor);
 
             verifySecureExceptionThrown(activityOptions, taskSupervisor,

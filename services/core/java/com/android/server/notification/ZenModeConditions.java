@@ -25,9 +25,10 @@ import android.service.notification.Condition;
 import android.service.notification.IConditionProvider;
 import android.service.notification.ZenModeConfig;
 import android.service.notification.ZenModeConfig.ZenRule;
-import android.util.ArrayMap;
 import android.util.ArraySet;
 import android.util.Log;
+import android.util.Pair;
+import android.util.Slog;
 
 import com.android.internal.annotations.VisibleForTesting;
 
@@ -45,7 +46,7 @@ public class ZenModeConditions implements ConditionProviders.Callback {
     private final ConditionProviders mConditionProviders;
 
     @VisibleForTesting
-    protected final ArrayMap<Uri, ComponentName> mSubscriptions = new ArrayMap<>();
+    protected final ArraySet<Pair<Uri, ComponentName>> mSubscriptions = new ArraySet<>();
 
     public ZenModeConditions(ZenModeHelper helper, ConditionProviders conditionProviders) {
         mHelper = helper;
@@ -78,7 +79,7 @@ public class ZenModeConditions implements ConditionProviders.Callback {
             if (DEBUG) Log.d(TAG, "evaluateConfig: clearing manual rule");
             config.manualRule = null;
         }
-        final ArraySet<Uri> current = new ArraySet<>();
+        final ArraySet<Pair<Uri, ComponentName>> current = new ArraySet<>();
         evaluateRule(config.manualRule, current, null, processSubscriptions, true);
         for (ZenRule automaticRule : config.automaticRules.values()) {
             if (automaticRule.component != null) {
@@ -90,11 +91,11 @@ public class ZenModeConditions implements ConditionProviders.Callback {
         synchronized (mSubscriptions) {
             final int N = mSubscriptions.size();
             for (int i = N - 1; i >= 0; i--) {
-                final Uri id = mSubscriptions.keyAt(i);
-                final ComponentName component = mSubscriptions.valueAt(i);
+                final Pair<Uri, ComponentName> subscription = mSubscriptions.valueAt(i);
                 if (processSubscriptions) {
-                    if (!current.contains(id)) {
-                        mConditionProviders.unsubscribeIfNecessary(component, id);
+                    if (!current.contains(subscription)) {
+                        mConditionProviders.unsubscribeIfNecessary(subscription.second,
+                                subscription.first);
                         mSubscriptions.removeAt(i);
                     }
                 }
@@ -131,19 +132,32 @@ public class ZenModeConditions implements ConditionProviders.Callback {
     }
 
     // Only valid for CPS backed rules
-    private void evaluateRule(ZenRule rule, ArraySet<Uri> current, ComponentName trigger,
-            boolean processSubscriptions, boolean isManual) {
+    private void evaluateRule(ZenRule rule, ArraySet<Pair<Uri, ComponentName>> current,
+            ComponentName trigger, boolean processSubscriptions, boolean isManual) {
         if (rule == null || rule.conditionId == null) return;
         if (rule.configurationActivity != null) return;
         final Uri id = rule.conditionId;
+        boolean isSystemRule = isManual || ZenModeConfig.SYSTEM_AUTHORITY.equals(rule.getPkg());
+
+        if (!isSystemRule
+                && rule.component != null
+                && ZenModeConfig.SYSTEM_AUTHORITY.equals(rule.component.getPackageName())) {
+            Slog.w(TAG, "Rule " + rule.id + " belongs to package " + rule.getPkg()
+                    + " but has component=" + rule.component + " which is not allowed!");
+            return;
+        }
+
         boolean isSystemCondition = false;
-        for (SystemConditionProviderService sp : mConditionProviders.getSystemProviders()) {
-            if (sp.isValidConditionId(id)) {
-                mConditionProviders.ensureRecordExists(sp.getComponent(), id, sp.asInterface());
-                rule.component = sp.getComponent();
-                isSystemCondition = true;
+        if (isSystemRule) {
+            for (SystemConditionProviderService sp : mConditionProviders.getSystemProviders()) {
+                if (sp.isValidConditionId(id)) {
+                    mConditionProviders.ensureRecordExists(sp.getComponent(), id, sp.asInterface());
+                    rule.component = sp.getComponent();
+                    isSystemCondition = true;
+                }
             }
         }
+
         // ensure that we have a record of the rule if it's backed by an currently alive CPS
         if (!isSystemCondition) {
             final IConditionProvider cp = mConditionProviders.findConditionProvider(rule.component);
@@ -160,8 +174,10 @@ public class ZenModeConditions implements ConditionProviders.Callback {
             }
             return;
         }
+
+        Pair<Uri, ComponentName> uriAndCps = new Pair<>(id, rule.component);
         if (current != null) {
-            current.add(id);
+            current.add(uriAndCps);
         }
 
         // If the rule is bound by a CPS and the CPS is alive, tell them about the rule
@@ -170,7 +186,7 @@ public class ZenModeConditions implements ConditionProviders.Callback {
             if (DEBUG) Log.d(TAG, "Subscribing to " + rule.component);
             if (mConditionProviders.subscribeIfNecessary(rule.component, rule.conditionId)) {
                 synchronized (mSubscriptions) {
-                    mSubscriptions.put(rule.conditionId, rule.component);
+                    mSubscriptions.add(uriAndCps);
                 }
             } else {
                 rule.condition = null;

@@ -2707,7 +2707,8 @@ final class ActivityRecord extends WindowToken {
      * This prevents briefly appearing the app context and causing secure concern.
      */
     void deferStartingWindowRemovalForKeyguardUnoccluding() {
-        if (mStartingData.mRemoveAfterTransaction != AFTER_TRANSITION_FINISH
+        if (mStartingData != null
+                && mStartingData.mRemoveAfterTransaction != AFTER_TRANSITION_FINISH
                 && isKeyguardLocked() && !canShowWhenLockedInner(this) && !isVisibleRequested()
                 && mTransitionController.inTransition(this)) {
             mStartingData.mRemoveAfterTransaction = AFTER_TRANSITION_FINISH;

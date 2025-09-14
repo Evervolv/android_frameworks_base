@@ -23,6 +23,7 @@ import android.content.Context.MODE_PRIVATE
 import android.content.DialogInterface
 import android.content.SharedPreferences
 import android.provider.Settings
+import android.view.WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS
 import androidx.annotation.VisibleForTesting
 import com.android.systemui.res.R
 import com.android.systemui.controls.settings.ControlsSettingsDialogManager.Companion.MAX_NUMBER_ATTEMPTS_CONTROLS_DIALOG
@@ -147,6 +148,8 @@ internal constructor(
                     setMessage(R.string.controls_settings_show_controls_dialog_message)
                 }
             }
+
+        d.window?.addSystemFlags(SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS)
 
         SystemUIDialog.registerDismissListener(d) { dialog = null }
         SystemUIDialog.setDialogSize(d)

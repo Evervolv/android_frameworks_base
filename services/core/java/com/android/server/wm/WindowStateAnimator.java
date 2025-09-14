@@ -62,6 +62,7 @@ import android.view.Surface.OutOfResourcesException;
 import android.view.SurfaceControl;
 import android.view.WindowManager;
 import android.view.WindowManager.LayoutParams;
+import android.view.animation.AlphaAnimation;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
 
@@ -545,6 +546,10 @@ class WindowStateAnimator {
                     a = AnimationUtils.loadAnimation(mContext, anim);
                     Trace.traceEnd(Trace.TRACE_TAG_WINDOW_MANAGER);
                 }
+            } else if (!isEntrance && mWin.isForceHiddenNonSystemOverlayWindow()) {
+                a = new AlphaAnimation(1f, 0f);
+                a.setDuration(mContext.getResources().getInteger(
+                        com.android.internal.R.integer.config_shortAnimTime));
             } else {
                 switch (transit) {
                     case WindowManagerPolicy.TRANSIT_ENTER:

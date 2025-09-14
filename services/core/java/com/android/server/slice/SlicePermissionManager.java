@@ -16,11 +16,13 @@ package com.android.server.slice;
 
 import android.content.ContentProvider;
 import android.content.Context;
+import android.content.pm.parsing.FrameworkParsingPackageUtils;
 import android.net.Uri;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.util.ArrayMap;
 import android.util.ArraySet;
@@ -424,6 +426,7 @@ public class SlicePermissionManager implements DirtyTracker {
         public PkgUser(String pkg, int userId) {
             mPkg = pkg;
             mUserId = userId;
+            enforceValidPackage();
         }
 
         public PkgUser(String pkgUserStr) throws IllegalArgumentException {
@@ -433,6 +436,17 @@ public class SlicePermissionManager implements DirtyTracker {
                 mUserId = Integer.parseInt(vals[1]);
             } catch (Exception e) {
                 throw new IllegalArgumentException(e);
+            }
+            enforceValidPackage();
+        }
+
+        private void enforceValidPackage() {
+            String error = FrameworkParsingPackageUtils.validateName(
+                    mPkg,
+                    false /* requireSeparator */,
+                    true /* requireFilename */);
+            if (!TextUtils.isEmpty(error)) {
+                throw new IllegalArgumentException((error));
             }
         }
 

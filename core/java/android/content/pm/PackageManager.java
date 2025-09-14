@@ -7802,20 +7802,46 @@ public abstract class PackageManager {
      * Intent.resolveActivity(PackageManager)} do.
      * </p>
      *
-     * Use {@link #resolveActivityAsUser(Intent, ResolveInfoFlags, int)} when long flags are needed.
+     * Use {@link #resolveActivityAsUser(Intent, String, ResolveInfoFlags, int)}
+     * when long flags are needed.
      *
      * @param intent An intent containing all of the desired specification
      *            (action, data, type, category, and/or component).
+     * @param resolvedType A nullable resolved type for the intent's data.
+     *            Specified explicitly when the data type contained in the
+     *            intent cannot be trusted. If null is provided, the type will
+     *            be obtained from the intent using
+     *            {@link Intent#resolveTypeIfNeeded}.
      * @param flags Additional option flags to modify the data returned. The
      *            most important is {@link #MATCH_DEFAULT_ONLY}, to limit the
      *            resolution to only those activities that support the
-     *            {@link android.content.Intent#CATEGORY_DEFAULT}.
+     *            {@link Intent#CATEGORY_DEFAULT}.
      * @param userId The user id.
      * @return Returns a ResolveInfo object containing the final activity intent
      *         that was determined to be the best action. Returns null if no
      *         matching activity was found. If multiple matching activities are
      *         found and there is no default set, returns a ResolveInfo object
      *         containing something else, such as the activity resolver.
+     * @hide
+     */
+    @Nullable
+    public ResolveInfo resolveActivityAsUser(@NonNull Intent intent,
+            @Nullable String resolvedType, int flags, @UserIdInt int userId) {
+        return resolveActivityAsUser(intent, resolvedType, ResolveInfoFlags.of(flags), userId);
+    }
+
+    /**
+     * See {@link #resolveActivityAsUser(Intent, String, int, int)}.
+     * @hide
+     */
+    @Nullable
+    public ResolveInfo resolveActivityAsUser(@NonNull Intent intent,
+            @Nullable String resolvedType, @NonNull ResolveInfoFlags flags, @UserIdInt int userId) {
+        throw new UnsupportedOperationException(
+                "resolveActivityAsUser not implemented in subclass");
+    }
+     /**
+     * See {@link #resolveActivityAsUser(Intent, String, int, int)}.
      * @hide
      */
     @SuppressWarnings("HiddenAbstractMethod")
@@ -7825,7 +7851,7 @@ public abstract class PackageManager {
             int flags, @UserIdInt int userId);
 
     /**
-     * See {@link #resolveActivityAsUser(Intent, int, int)}.
+     * See {@link #resolveActivityAsUser(Intent, String, int, int)}.
      * @hide
      */
     @Nullable

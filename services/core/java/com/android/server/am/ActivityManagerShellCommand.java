@@ -250,21 +250,13 @@ final class ActivityManagerShellCommand extends ShellCommand {
                     return runStartActivity(pw);
                 case "start-in-vsync":
                     final ProgressWaiter waiter = new ProgressWaiter(0);
-                    final int[] startResult = new int[1];
-                    startResult[0] = -1;
                     mInternal.mUiHandler.runWithScissors(
                             () -> Choreographer.getInstance().postFrameCallback(frameTimeNanos -> {
-                                try {
-                                    startResult[0] = runStartActivity(pw);
-                                    waiter.onFinished(0, null /* extras */);
-                                } catch (Exception ex) {
-                                    getErrPrintWriter().println(
-                                            "Error: unable to start activity, " + ex);
-                                }
+                                waiter.onFinished(0, null /* extras */);
                             }),
                             USER_OPERATION_TIMEOUT_MS / 2);
                     waiter.waitForFinish(USER_OPERATION_TIMEOUT_MS);
-                    return startResult[0];
+                    return runStartActivity(pw);
                 case "startservice":
                 case "start-service":
                     return runStartService(pw, false);

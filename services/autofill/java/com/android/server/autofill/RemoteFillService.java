@@ -117,6 +117,14 @@ final class RemoteFillService extends ServiceConnector.Impl<IAutoFillService> {
         }
     }
 
+    @Override // from ServiceConnection
+    public void onNullBinding(@NonNull ComponentName name) {
+        if (sVerbose) {
+            Slog.v(TAG, "onNullBinding");
+        }
+        unbind();
+    }
+
     private void dispatchCancellationSignal(@Nullable ICancellationSignal signal) {
         if (signal == null) {
             return;
